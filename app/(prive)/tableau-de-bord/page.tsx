@@ -7,6 +7,7 @@ import { BirthdayList } from "@/components/dashboard/birthday-list";
 import { DashboardSection } from "@/components/dashboard/dashboard-section";
 import { EventCard } from "@/components/events/event-card";
 import { AppShell } from "@/components/layout/app-shell";
+import { CircleSwitcher } from "@/components/layout/circle-switcher";
 import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
 import { prisma } from "@/lib/prisma";
@@ -15,27 +16,42 @@ type HomeCalendarItem = {
   id: string;
   label: string;
   kind: "event" | "birthday" | "holiday";
-  href?: string;
   timeLabel?: string;
 };
 
 export default async function TableauDeBordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; circleId?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/connexion");
   }
 
-  const { month } = await searchParams;
+  const { month, circleId: selectedCircleId } = await searchParams;
 
   const memberships = await prisma.circleMembership.findMany({
     where: { userId: session.user.id },
-    select: { circleId: true },
+    include: { circle: true },
+    orderBy: { createdAt: "asc" },
   });
-  const circleIds = memberships.map((membership) => membership.circleId);
+
+  if (memberships.length === 0) {
+    return (
+      <AppShell title="Tableau de bord">
+        <DashboardSection title="Bienvenue" description="Commencez par creer ou rejoindre un cercle familial.">
+          <Link href="/cercles" className="inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+            Aller a Mes cercles
+          </Link>
+        </DashboardSection>
+      </AppShell>
+    );
+  }
+
+  const activeMembership = memberships.find((membership) => membership.circleId === selectedCircleId) ?? memberships[0];
+  const activeCircle = activeMembership.circle;
+  const circleIds = [activeCircle.id];
 
   const parsedMonth = month ? parseISO(`${month}-01`) : new Date();
   const currentMonth = Number.isNaN(parsedMonth.getTime()) ? new Date() : parsedMonth;
@@ -113,7 +129,6 @@ export default async function TableauDeBordPage({
       id: `event-${event.id}`,
       label: event.title,
       kind: "event",
-      href: `/cercles/${event.circleId}/evenements/${event.id}`,
       timeLabel: format(eventDate, "HH:mm"),
     });
   }
@@ -179,16 +194,29 @@ export default async function TableauDeBordPage({
   return (
     <AppShell title="Tableau de bord">
       <DashboardSection title={`Calendrier mensuel - ${monthLabel}`} description="Vue rapide des evenements et anniversaires de ce mois.">
+        <div className="mb-3">
+          <CircleSwitcher
+            circles={memberships.map((membership) => ({
+              id: membership.circle.id,
+              name: membership.circle.name,
+              photoUrl: membership.circle.photoUrl,
+              description: membership.circle.description,
+            }))}
+            currentCircleId={activeCircle.id}
+            navigateBasePath="/tableau-de-bord"
+            queryParamName="circleId"
+          />
+        </div>
         <div className="mb-3 flex items-center justify-between gap-2">
           <Link
-            href={`/tableau-de-bord?month=${prevMonth}`}
+            href={`/tableau-de-bord?month=${prevMonth}&circleId=${activeCircle.id}`}
             className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
           >
             Mois precedent
           </Link>
           <p className="text-sm font-semibold capitalize text-zinc-800">{monthLabel}</p>
           <Link
-            href={`/tableau-de-bord?month=${nextMonth}`}
+            href={`/tableau-de-bord?month=${nextMonth}&circleId=${activeCircle.id}`}
             className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
           >
             Mois suivant
@@ -208,65 +236,37 @@ export default async function TableauDeBordPage({
             const visibleItems = dayItems.slice(0, 2);
             const hiddenCount = Math.max(0, dayItems.length - visibleItems.length);
             const isCurrentMonth = isSameMonth(dayDate, monthStart);
+            const dayLink = `/cercles/${activeCircle.id}/calendrier/jour/${dateKey}`;
 
             return (
-              <div key={dateKey} className={`min-h-20 rounded-xl border p-1.5 ${isCurrentMonth ? "border-indigo-100 bg-white" : "border-zinc-100 bg-zinc-50"}`}>
+              <Link
+                key={dateKey}
+                href={dayLink}
+                className={`block min-h-20 rounded-xl border p-1.5 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 active:scale-[0.995] ${isCurrentMonth ? "border-indigo-100 bg-white" : "border-zinc-100 bg-zinc-50"}`}
+              >
                 <p className={`mb-0.5 text-[11px] font-semibold ${isToday(dayDate) ? "text-indigo-700" : isCurrentMonth ? "text-zinc-700" : "text-zinc-400"}`}>
-                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${isToday(dayDate) ? "bg-indigo-100" : ""}`}>{format(dayDate, "d")}</span>
+                  <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 ${isToday(dayDate) ? "bg-indigo-100" : ""}`}>{format(dayDate, "d")}</span>
                 </p>
                 {visibleItems.map((item) => (
-                  item.href ? (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      className={`mt-0.5 block truncate rounded-md px-1 py-0.5 text-[10px] font-medium ${
-                        item.kind === "event"
-                          ? "bg-indigo-100 text-indigo-800"
-                          : item.kind === "birthday"
-                            ? "bg-pink-100 text-pink-800"
-                            : "bg-amber-100 text-amber-900"
-                      }`}
-                    >
-                      {item.timeLabel ? `${item.timeLabel} ` : ""}
-                      {item.label}
-                    </Link>
-                  ) : (
-                    <div
-                      key={item.id}
-                      className={`mt-0.5 truncate rounded-md px-1 py-0.5 text-[10px] font-medium ${
-                        item.kind === "event"
-                          ? "bg-indigo-100 text-indigo-800"
-                          : item.kind === "birthday"
-                            ? "bg-pink-100 text-pink-800"
-                            : "bg-amber-100 text-amber-900"
-                      }`}
-                    >
-                      {item.label}
-                    </div>
-                  )
+                  <div
+                    key={item.id}
+                    className={`mt-0.5 truncate rounded-md px-1 py-0.5 text-[10px] font-medium ${
+                      item.kind === "event"
+                        ? "bg-indigo-100 text-indigo-800"
+                        : item.kind === "birthday"
+                          ? "bg-pink-100 text-pink-800"
+                          : "bg-amber-100 text-amber-900"
+                    }`}
+                  >
+                    {item.timeLabel ? `${item.timeLabel} ` : ""}
+                    {item.label}
+                  </div>
                 ))}
                 {hiddenCount > 0 ? <p className="mt-0.5 text-[10px] font-medium text-zinc-500">+ {hiddenCount} autres</p> : null}
-              </div>
+              </Link>
             );
           })}
         </div>
-      </DashboardSection>
-
-      <DashboardSection title="Choses a faire" description="Priorites rapides pour garder le cercle a jour.">
-        <ul className="space-y-2 text-sm">
-          <li className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">RSVP manquants:</span> {rsvpMissingTasks.length} evenement(s) a relancer
-          </li>
-          <li className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Items urgents:</span> {urgentTaskCount}
-          </li>
-          <li className="rounded-2xl border border-rose-100 bg-rose-50/40 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Items manquants:</span> {missingItemCount}
-          </li>
-          <li className="rounded-2xl border border-pink-100 bg-pink-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Anniversaires a souhaiter (7 jours):</span> {birthdaysSoonCount}
-          </li>
-        </ul>
       </DashboardSection>
 
       <DashboardSection title="Prochains evenements" description="Ce qui s'en vient dans vos cercles.">
@@ -286,6 +286,23 @@ export default async function TableauDeBordPage({
             }}
           />
         ))}
+      </DashboardSection>
+
+      <DashboardSection title="Choses a faire" description="Priorites rapides pour garder le cercle a jour.">
+        <ul className="space-y-2 text-sm">
+          <li className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
+            <span className="font-semibold text-zinc-900">RSVP manquants:</span> {rsvpMissingTasks.length} evenement(s) a relancer
+          </li>
+          <li className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
+            <span className="font-semibold text-zinc-900">Items urgents:</span> {urgentTaskCount}
+          </li>
+          <li className="rounded-2xl border border-rose-100 bg-rose-50/40 px-3 py-3">
+            <span className="font-semibold text-zinc-900">Items manquants:</span> {missingItemCount}
+          </li>
+          <li className="rounded-2xl border border-pink-100 bg-pink-50/70 px-3 py-3">
+            <span className="font-semibold text-zinc-900">Anniversaires a souhaiter (7 jours):</span> {birthdaysSoonCount}
+          </li>
+        </ul>
       </DashboardSection>
 
       <DashboardSection title="Anniversaires a venir">
