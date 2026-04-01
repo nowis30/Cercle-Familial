@@ -11,7 +11,15 @@ type ZonedParts = {
   second: number;
 };
 
-const PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+function safeFormatter(locale: string, options: Intl.DateTimeFormatOptions) {
+  try {
+    return new Intl.DateTimeFormat(locale, options);
+  } catch {
+    return new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" });
+  }
+}
+
+const PARTS_FORMATTER = safeFormatter("en-CA", {
   timeZone: EVENT_TIME_ZONE,
   year: "numeric",
   month: "2-digit",
@@ -22,14 +30,14 @@ const PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   hourCycle: "h23",
 });
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("fr-CA", {
+const DATE_FORMATTER = safeFormatter("fr-CA", {
   timeZone: EVENT_TIME_ZONE,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 });
 
-const TIME_FORMATTER = new Intl.DateTimeFormat("fr-CA", {
+const TIME_FORMATTER = safeFormatter("fr-CA", {
   timeZone: EVENT_TIME_ZONE,
   hour: "2-digit",
   minute: "2-digit",
