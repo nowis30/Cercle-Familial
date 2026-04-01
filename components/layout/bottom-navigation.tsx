@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, House, MessageCircle, User } from "lucide-react";
+import { CalendarDays, House, MessageCircle, User, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/tableau-de-bord", label: "Accueil", icon: House },
+  { href: "/cercles", label: "Cercles", icon: Users },
   { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/profil", label: "Profil", icon: User },
   { href: "/parametres", label: "Reglages", icon: CalendarDays },
@@ -28,7 +29,7 @@ export function BottomNavigation() {
               <Link
                 href={item.href}
                 className={cn(
-                  "flex min-w-14 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold transition-colors",
+                  "flex min-w-12 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold transition-colors sm:text-[11px]",
                   active ? "bg-indigo-50 text-indigo-700" : "text-zinc-500 hover:text-zinc-700",
                 )}
               >
