@@ -44,7 +44,20 @@ export async function POST(request: Request) {
     await writeFile(join(uploadDir, fileName), buffer);
 
     return NextResponse.json({ url: `/uploads/events/${fileName}`, size: file.size, mimeType: file.type });
-  } catch {
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
+
+    if (code === "EROFS" || code === "EPERM") {
+      return NextResponse.json(
+        {
+          error:
+            "Televersement indisponible sur cet environnement de production (stockage local en lecture seule). Configurez un stockage externe pour les photos.",
+        },
+        { status: 503 },
+      );
+    }
+
+    console.error("[upload] Erreur POST /api/upload", error);
     return NextResponse.json({ error: "Erreur de televersement" }, { status: 500 });
   }
 }
