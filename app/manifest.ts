@@ -11,15 +11,15 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#4F46E5",
     icons: [
       {
-        src: "/branding/cercle-familial-mark.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/branding/logo-cercle-familial.png",
+        sizes: "400x400",
+        type: "image/png",
         purpose: "any",
       },
       {
-        src: "/branding/cercle-familial-mark.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/branding/logo-cercle-familial.png",
+        sizes: "400x400",
+        type: "image/png",
         purpose: "maskable",
       },
     ],

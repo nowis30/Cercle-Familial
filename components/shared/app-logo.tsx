@@ -11,11 +11,11 @@ export function AppLogo({ compact = false, className }: AppLogoProps) {
   if (compact) {
     return (
       <Image
-        src="/branding/cercle-familial-mark.svg"
+        src="/branding/logo-cercle-familial.png"
         alt="Logo Cercle Familial"
         width={36}
         height={36}
-        className={cn("h-9 w-9 rounded-xl", className)}
+        className={cn("h-9 w-9 rounded-xl object-contain", className)}
         priority
       />
     );
@@ -23,11 +23,11 @@ export function AppLogo({ compact = false, className }: AppLogoProps) {
 
   return (
     <Image
-      src="/branding/cercle-familial-logo.svg"
+      src="/branding/logo-cercle-familial.png"
       alt="Logo Cercle Familial"
-      width={180}
-      height={55}
-      className={cn("h-[44px] w-auto", className)}
+      width={148}
+      height={148}
+      className={cn("h-[74px] w-[74px] object-contain", className)}
       priority
     />
   );

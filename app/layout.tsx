@@ -19,12 +19,13 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
-      { url: "/branding/cercle-familial-mark.svg", type: "image/svg+xml" },
+      { url: "/branding/logo-cercle-familial.png", type: "image/png", sizes: "400x400" },
+      { url: "/favicon.ico" },
     ],
     apple: [
-      { url: "/branding/cercle-familial-mark.svg", type: "image/svg+xml" },
+      { url: "/branding/logo-cercle-familial.png", type: "image/png", sizes: "400x400" },
     ],
-    shortcut: ["/branding/cercle-familial-mark.svg"],
+    shortcut: ["/branding/logo-cercle-familial.png"],
   },
 };
 
