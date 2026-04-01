@@ -10,6 +10,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { canCreateEvent, canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { createManagedFamilyMemberAction as createManagedFamilyMemberFromProfileAction } from "@/actions/profile";
 
 async function safeCreateHistory(
   tx: Prisma.TransactionClient,
@@ -402,55 +403,12 @@ const rsvpSchema = z.object({
   note: z.string().optional(),
 });
 
-const createManagedFamilyMemberSchema = z.object({
-  firstName: z.string().trim().min(2),
-  lastName: z.string().trim().optional(),
-  relationLabel: z.string().trim().optional(),
-});
-
-export async function createManagedFamilyMemberAction(input: z.infer<typeof createManagedFamilyMemberSchema>) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, message: "Session invalide." };
-  }
-
-  const parsed = createManagedFamilyMemberSchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false, message: parsed.error.issues[0]?.message ?? "Membre invalide." };
-  }
-
-  const created = await prisma.managedFamilyMember.create({
-    data: {
-      ownerUserId: session.user.id,
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName || null,
-      relationLabel: parsed.data.relationLabel || null,
-    },
-  });
-
-  try {
-    await prisma.actionHistory.create({
-      data: {
-        actionType: HistoryActionType.CREATE,
-        objectType: HistoryObjectType.MEMBER,
-        objectId: created.id,
-        objectLabel: `${created.firstName}${created.lastName ? ` ${created.lastName}` : ""}`.trim(),
-        actorUserId: session.user.id,
-        actorDisplayName: session.user.name ?? null,
-        details: {
-          source: "MANAGED_FAMILY_MEMBER",
-        },
-      },
-    });
-  } catch (error) {
-    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
-    if (code !== "P2021" && code !== "P2022") {
-      throw error;
-    }
-  }
-
-  revalidatePath("/profil");
-  return { success: true, memberId: created.id };
+export async function createManagedFamilyMemberAction(input: {
+  firstName: string;
+  lastName?: string;
+  relationLabel?: string;
+}) {
+  return createManagedFamilyMemberFromProfileAction(input);
 }
 
 export async function respondRsvpAction(input: z.infer<typeof rsvpSchema>) {

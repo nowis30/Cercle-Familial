@@ -1,12 +1,27 @@
 "use server";
 
-import { NotificationChannel } from "@prisma/client";
+import { HistoryActionType, HistoryObjectType, NotificationChannel, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAppDefaultTimeZone, isValidIanaTimeZone } from "@/lib/timezone";
+
+async function safeCreateHistory(
+  tx: Prisma.TransactionClient,
+  args: Parameters<typeof prisma.actionHistory.create>[0],
+) {
+  try {
+    await tx.actionHistory.create(args);
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
+    if (code === "P2021" || code === "P2022") {
+      return;
+    }
+    throw error;
+  }
+}
 
 function isValidDateInput(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -156,4 +171,160 @@ export async function updateNotificationPreferencesAction(input: z.infer<typeof 
 
   revalidatePath("/parametres");
   return { success: true, message: "Preferences enregistrees." };
+}
+
+const managedFamilyMemberSchema = z.object({
+  firstName: z.string().trim().min(2, "Prenom requis."),
+  lastName: z.string().trim().max(80).optional(),
+  relationLabel: z.string().trim().max(40).optional(),
+});
+
+const updateManagedFamilyMemberSchema = managedFamilyMemberSchema.extend({
+  memberId: z.string().min(1),
+});
+
+const deleteManagedFamilyMemberSchema = z.object({
+  memberId: z.string().min(1),
+});
+
+export async function createManagedFamilyMemberAction(input: z.infer<typeof managedFamilyMemberSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = managedFamilyMemberSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? "Membre invalide." };
+  }
+
+  const data = parsed.data;
+
+  const created = await prisma.$transaction(async (tx) => {
+    const item = await tx.managedFamilyMember.create({
+      data: {
+        ownerUserId: session.user.id,
+        firstName: data.firstName,
+        lastName: data.lastName || null,
+        relationLabel: data.relationLabel || null,
+      },
+    });
+
+    await safeCreateHistory(tx, {
+      data: {
+        actionType: HistoryActionType.CREATE,
+        objectType: HistoryObjectType.MEMBER,
+        objectId: item.id,
+        objectLabel: `${item.firstName}${item.lastName ? ` ${item.lastName}` : ""}`.trim(),
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        details: {
+          source: "PROFILE",
+        },
+      },
+    });
+
+    return item;
+  });
+
+  revalidatePath("/profil");
+  return { success: true, memberId: created.id, message: "Membre ajoute." };
+}
+
+export async function updateManagedFamilyMemberAction(input: z.infer<typeof updateManagedFamilyMemberSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = updateManagedFamilyMemberSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? "Membre invalide." };
+  }
+
+  const existing = await prisma.managedFamilyMember.findUnique({
+    where: { id: parsed.data.memberId },
+  });
+
+  if (!existing || existing.ownerUserId !== session.user.id) {
+    return { success: false, message: "Acces refuse." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.managedFamilyMember.update({
+      where: { id: existing.id },
+      data: {
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName || null,
+        relationLabel: parsed.data.relationLabel || null,
+      },
+    });
+
+    await safeCreateHistory(tx, {
+      data: {
+        actionType: HistoryActionType.UPDATE,
+        objectType: HistoryObjectType.MEMBER,
+        objectId: updated.id,
+        objectLabel: `${updated.firstName}${updated.lastName ? ` ${updated.lastName}` : ""}`.trim(),
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        previousValue: {
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          relationLabel: existing.relationLabel,
+        },
+        newValue: {
+          firstName: updated.firstName,
+          lastName: updated.lastName,
+          relationLabel: updated.relationLabel,
+        },
+      },
+    });
+  });
+
+  revalidatePath("/profil");
+  return { success: true, message: "Membre mis a jour." };
+}
+
+export async function deleteManagedFamilyMemberAction(input: z.infer<typeof deleteManagedFamilyMemberSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = deleteManagedFamilyMemberSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: "Suppression invalide." };
+  }
+
+  const existing = await prisma.managedFamilyMember.findUnique({
+    where: { id: parsed.data.memberId },
+  });
+
+  if (!existing || existing.ownerUserId !== session.user.id) {
+    return { success: false, message: "Acces refuse." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.managedFamilyMember.delete({ where: { id: existing.id } });
+
+    await safeCreateHistory(tx, {
+      data: {
+        actionType: HistoryActionType.DELETE,
+        objectType: HistoryObjectType.MEMBER,
+        objectId: existing.id,
+        objectLabel: `${existing.firstName}${existing.lastName ? ` ${existing.lastName}` : ""}`.trim(),
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        previousValue: {
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          relationLabel: existing.relationLabel,
+        },
+      },
+    });
+  });
+
+  revalidatePath("/profil");
+  return { success: true, message: "Membre supprime." };
 }

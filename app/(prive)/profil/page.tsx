@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { FamilyMembersSection } from "@/components/profile/family-members-section";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -27,10 +28,16 @@ export default async function ProfilPage({
     redirect("/connexion");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { profile: true },
-  });
+  const [user, managedFamilyMembers] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { profile: true },
+    }),
+    prisma.managedFamilyMember.findMany({
+      where: { ownerUserId: session.user.id },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    }),
+  ]);
 
   if (!user) {
     redirect("/connexion");
@@ -52,6 +59,15 @@ export default async function ProfilPage({
           foodPreferences: user.profile?.foodPreferences ?? "",
           giftIdeas: user.profile?.giftIdeas ?? "",
         }}
+      />
+
+      <FamilyMembersSection
+        initialMembers={managedFamilyMembers.map((member) => ({
+          id: member.id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          relationLabel: member.relationLabel,
+        }))}
       />
     </AppShell>
   );
