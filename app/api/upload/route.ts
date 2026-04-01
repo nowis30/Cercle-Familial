@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 
+import { auth } from "@/lib/auth";
+
 const MAX_SIZE_MB = 8;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const EXTENSIONS_BY_MIME: Record<string, string> = {
@@ -16,6 +18,11 @@ const EXTENSIONS_BY_MIME: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Session invalide", code: "INVALID_SESSION" }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 

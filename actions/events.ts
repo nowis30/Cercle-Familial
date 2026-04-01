@@ -3,13 +3,29 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ContributionStatus, EventType, HistoryActionType, HistoryObjectType, RsvpResponse } from "@prisma/client";
+import { ContributionStatus, EventType, HistoryActionType, HistoryObjectType, Prisma, RsvpResponse } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { canCreateEvent, canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+
+async function safeCreateHistory(
+  tx: Prisma.TransactionClient,
+  args: Parameters<typeof prisma.actionHistory.create>[0],
+) {
+  try {
+    await tx.actionHistory.create(args);
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
+    if (code === "P2021" || code === "P2022") {
+      console.warn("[history] Table/colonne historique indisponible, journalisation ignoree temporairement.", { code });
+      return;
+    }
+    throw error;
+  }
+}
 
 const createEventSchema = z.object({
   circleId: z.string().min(1),
@@ -104,7 +120,7 @@ export async function createEventAction(input: z.infer<typeof createEventSchema>
         },
       });
 
-      await tx.actionHistory.create({
+      await safeCreateHistory(tx, {
         data: {
           actionType: HistoryActionType.CREATE,
           objectType: HistoryObjectType.EVENT,
@@ -263,7 +279,7 @@ export async function updateEventAction(input: z.infer<typeof updateEventSchema>
       });
     }
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.UPDATE,
         objectType: HistoryObjectType.EVENT,
@@ -348,7 +364,7 @@ export async function deleteEventAction(input: z.infer<typeof deleteEventSchema>
   await prisma.$transaction(async (tx) => {
     await tx.event.delete({ where: { id: event.id } });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.DELETE,
         objectType: HistoryObjectType.EVENT,
@@ -412,19 +428,26 @@ export async function createManagedFamilyMemberAction(input: z.infer<typeof crea
     },
   });
 
-  await prisma.actionHistory.create({
-    data: {
-      actionType: HistoryActionType.CREATE,
-      objectType: HistoryObjectType.MEMBER,
-      objectId: created.id,
-      objectLabel: `${created.firstName}${created.lastName ? ` ${created.lastName}` : ""}`.trim(),
-      actorUserId: session.user.id,
-      actorDisplayName: session.user.name ?? null,
-      details: {
-        source: "MANAGED_FAMILY_MEMBER",
+  try {
+    await prisma.actionHistory.create({
+      data: {
+        actionType: HistoryActionType.CREATE,
+        objectType: HistoryObjectType.MEMBER,
+        objectId: created.id,
+        objectLabel: `${created.firstName}${created.lastName ? ` ${created.lastName}` : ""}`.trim(),
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        details: {
+          source: "MANAGED_FAMILY_MEMBER",
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
+    if (code !== "P2021" && code !== "P2022") {
+      throw error;
+    }
+  }
 
   revalidatePath("/profil");
   return { success: true, memberId: created.id };
@@ -519,7 +542,7 @@ export async function respondRsvpAction(input: z.infer<typeof rsvpSchema>) {
       });
     }
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.UPDATE,
         objectType: HistoryObjectType.EVENT,
@@ -596,7 +619,7 @@ export async function createContributionItemAction(input: z.infer<typeof contrib
       },
     });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.CREATE,
         objectType: HistoryObjectType.CONTRIBUTION_ITEM,
@@ -670,7 +693,7 @@ export async function reserveContributionItemAction(input: z.infer<typeof reserv
       },
     });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.ASSIGN,
         objectType: HistoryObjectType.CONTRIBUTION_ITEM,
@@ -742,7 +765,7 @@ export async function updateContributionStatusAction(input: z.infer<typeof updat
       data: { status: parsed.data.status },
     });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.UPDATE,
         objectType: HistoryObjectType.CONTRIBUTION_ITEM,
@@ -813,7 +836,7 @@ export async function updateContributionItemAction(input: z.infer<typeof updateC
       },
     });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.UPDATE,
         objectType: HistoryObjectType.CONTRIBUTION_ITEM,
@@ -882,7 +905,7 @@ export async function deleteContributionItemAction(input: z.infer<typeof deleteC
   await prisma.$transaction(async (tx) => {
     await tx.eventContributionItem.delete({ where: { id: item.id } });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.DELETE,
         objectType: HistoryObjectType.CONTRIBUTION_ITEM,
