@@ -1,0 +1,167 @@
+# Cercle Familial (V1)
+
+Application web mobile-first privee pour grande famille quebecoise, en francais.
+
+## Stack
+
+- Next.js App Router + TypeScript
+- Tailwind CSS
+- Prisma + PostgreSQL
+- NextAuth (courriel/mot de passe + Google si configure)
+- Zod + React Hook Form
+- Lucide React
+
+## Objectif V1
+
+- Gestion de cercles (multi-cercles)
+- Evenements familiaux (dont anniversaires)
+- RSVP detaille
+- Contributions "qui apporte quoi"
+- Discussion de cercle + commentaires d'evenement + messages prives simples
+- Pige de cadeaux V1
+- Photos souvenirs d'evenement (upload local simple)
+- Preferences de notifications
+
+## Architecture
+
+- app: routes publiques, privees, API
+- components: UI reusable + composants metier
+- actions: server actions (inscription, invitations, evenements, RSVP)
+- features: logique metier isolable (ex: pige)
+- lib: auth, Prisma, permissions, constantes, utilitaires
+- prisma: schema + seed
+- types: extensions de types globaux
+
+## Routes principales
+
+### Public
+
+- /
+- /connexion
+- /inscription
+
+### Prive
+
+- /tableau-de-bord
+- /cercles
+- /cercles/[circleId]
+- /cercles/[circleId]/calendrier
+- /cercles/[circleId]/membres
+- /cercles/[circleId]/discussion
+- /cercles/[circleId]/evenements/nouveau
+- /cercles/[circleId]/evenements/[eventId]
+- /messages
+- /messages/[conversationId]
+- /profil
+- /parametres
+- /cercles/[circleId]/cadeaux
+- /cercles/[circleId]/cadeaux/[drawId]
+
+## Prisma
+
+Le schema contient les entites suivantes:
+
+- User, Account, Session, VerificationToken
+- Circle, CircleMembership, CircleInvite
+- PersonProfile, FamilyRelation
+- Event, EventInvite, EventAttendance
+- EventContributionItem, EventComment, EventPhoto
+- CircleMessage
+- DirectConversation, DirectConversationParticipant, DirectMessage
+- GiftExchange, GiftExchangeParticipant, GiftExchangeAssignment
+- UserNotificationPreference
+
+## Seed
+
+Le seed installe:
+
+- 1 admin principal
+- adultes + enfants
+- 1 grand cercle + 1 sous-cercle
+- evenements, RSVP, contributions, messages
+- pige exemple
+
+Compte demo credentials:
+
+- courriel: admin@cerclefamilial.local
+- mot de passe: Famille123!
+
+## Commandes utiles
+
+- npm run dev
+- npm run lint
+- npm run prisma:generate
+- npm run prisma:push
+- npm run db:seed
+- npm run build
+
+## Securite V1
+
+- Middleware de protection des routes privees
+- Validation Zod cote serveur et client
+- Role helpers (ADMIN, ADULTE, ENFANT)
+- Liens d'invitation de cercle avec expiration et max usages
+
+## TODO V2
+
+- Geolocalisation en direct
+- Videos souvenirs
+- Notifications enrichies en file d'attente
+- Login Facebook
+- Regles de pige avancees (exclusions dynamiques, rotation)
+- Calendrier avance (recurrence, drag-drop, fuseaux)
+
+## Notes implementation
+
+- Les pages critiques V1 sont branchees sur Prisma et server actions.
+- Le schema Prisma et les actions sont valides pour une evolution V2 sans refonte.
+- L'upload photo actuel est local (public/uploads/events) et pret a etre remplace par stockage externe.
+
+## Etat reel V1 (stabilisation)
+
+Fonctionnel et persistant:
+
+- Inscription + profil minimal auto
+- Creation de cercle + adhesion auto ADMIN
+- Invitation par lien (token, expiration, max usages)
+- Creation evenement (permissions adultes/admin)
+- RSVP persistant modifiable
+- Contributions (ajout, reservation, statut)
+- Discussion cercle + commentaires evenement
+- Upload photo evenement + suppression selon role
+- Tableau de bord alimente par Prisma
+- Profil et preferences notifications persistes
+- Calendrier mensuel simple exploitable
+- Messagerie privee minimale (liste, ouverture, envoi)
+
+Reste simplifie:
+
+- Calendrier sans recurrence avancee ni drag-drop
+- Messagerie sans temps reel
+- Moderation UI volontairement sobre
+
+Limites connues V1:
+
+- Jours feries/fetes partiellement integres via logique simple locale
+- Upload media limite aux images (8MB max)
+- Pas de geolocalisation ni video
+
+## Comment tester rapidement
+
+1. Configurer `.env` depuis `.env.example`.
+2. Lancer `npm run prisma:generate` puis `npm run prisma:push`.
+3. Charger les donnees de test: `npm run db:seed`.
+4. Demarrer l'app: `npm run dev`.
+5. Suivre la checklist: `docs/checklist-fonctionnelle-v1.md`.
+
+## Checklist fonctionnelle manuelle V1
+
+- Inscription: creer un compte via /inscription puis se connecter via /connexion.
+- Creation cercle: depuis /cercles, creer un cercle et verifier l'ajout auto du createur en ADMIN.
+- Invitation: depuis le detail cercle, generer un lien puis ouvrir /invitation/[token] avec un autre compte.
+- Creation evenement: ouvrir /cercles/[circleId]/evenements/nouveau, creer un evenement et verifier l'apparition dans le cercle.
+- RSVP: sur /cercles/[circleId]/evenements/[eventId], envoyer un RSVP puis modifier la reponse et verifier les totaux.
+- Contribution: ajouter un item, reserver un item, changer son statut (MANQUANT/URGENT/CONFIRME/APPORTE).
+- Commentaire: ajouter un commentaire evenement et verifier la suppression admin.
+- Discussion cercle: envoyer un message dans /cercles/[circleId]/discussion puis tester la suppression admin.
+- Upload photo: sur la fiche evenement, televerser une image puis verifier l'affichage galerie et suppression autorisee.

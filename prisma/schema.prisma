@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CircleRole {
+  ADMIN
+  ADULTE
+  ENFANT
+}
+
+enum InvitePermission {
+  ADMINS_ONLY
+  ADMINS_AND_ADULTS
+}
+
+enum EventType {
+  NOEL
+  PAQUES
+  RESTAURANT
+  FETE_ENFANT
+  SOUPER_FAMILIAL
+  ANNIVERSAIRE
+  REUNION_FAMILIALE
+  AUTRE
+}
+
+enum RsvpResponse {
+  JE_VIENS
+  JE_NE_VIENS_PAS
+  PEUT_ETRE
+}
+
+enum ContributionStatus {
+  MANQUANT
+  URGENT
+  CONFIRME
+  APPORTE
+}
+
+enum NotificationChannel {
+  APP
+  EMAIL
+  NONE
+}
+
+enum FamilyRelationType {
+  PARENT_DE
+  ENFANT_DE
+  CONJOINT_DE
+}
+
+model User {
+  id               String                       @id @default(cuid())
+  email            String                       @unique
+  passwordHash     String?
+  name             String
+  image            String?
+  phone            String?
+  address          String?
+  isAdult          Boolean                      @default(true)
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  circleMemberships CircleMembership[]
+  sentMessages     DirectMessage[]              @relation("SentMessages")
+  eventAttendances EventAttendance[]
+  eventComments    EventComment[]
+  circleMessages   CircleMessage[]
+  reservedItems    EventContributionItem[]      @relation("ReservedItems")
+  hostedEvents     Event[]                      @relation("HostedEvents")
+  directParticipants DirectConversationParticipant[]
+  giftParticipants GiftExchangeParticipant[]
+  assignedGiftLinks GiftExchangeAssignment[]    @relation("GiftAssignedTo")
+  receivedGiftLinks GiftExchangeAssignment[]    @relation("GiftReceivedBy")
+  notificationPreference UserNotificationPreference?
+  profile          PersonProfile?
+  responsibleForProfiles PersonProfile[]        @relation("ResponsibleParent")
+  createdInvites   CircleInvite[]               @relation("CircleInviteCreator")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Circle {
+  id                 String            @id @default(cuid())
+  name               String
+  slug               String            @unique
+  photoUrl           String?
+  description        String?
+  rules              String?
+  invitePermission   InvitePermission  @default(ADMINS_AND_ADULTS)
+  defaultInviteRole  CircleRole        @default(ADULTE)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  memberships        CircleMembership[]
+  invites            CircleInvite[]
+  events             Event[]
+  messages           CircleMessage[]
+  giftExchanges      GiftExchange[]
+
+  @@index([slug])
+}
+
+model CircleMembership {
+  id        String     @id @default(cuid())
+  circleId  String
+  userId    String
+  role      CircleRole
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  circle    Circle     @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([circleId, userId])
+  @@index([circleId, role])
+  @@index([userId])
+}
+
+model CircleInvite {
+  id          String     @id @default(cuid())
+  circleId    String
+  token       String     @unique
+  createdById String
+  expiresAt   DateTime
+  maxUses     Int        @default(1)
+  usedCount   Int        @default(0)
+  defaultRole CircleRole
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  circle      Circle     @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  createdBy   User       @relation("CircleInviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([circleId])
+  @@index([expiresAt])
+}
+
+model PersonProfile {
+  id                     String               @id @default(cuid())
+  userId                 String               @unique
+  firstName              String
+  lastName               String
+  birthDate              DateTime?
+  marriageDate           DateTime?
+  baptismDate            DateTime?
+  confirmationDate       DateTime?
+  familyRoleLabel        String?
+  allergies              String?
+  foodPreferences        String?
+  giftIdeas              String?
+  responsibleParentId    String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  user                   User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responsibleParent      User?                @relation("ResponsibleParent", fields: [responsibleParentId], references: [id], onDelete: SetNull)
+  familyRelationsFrom    FamilyRelation[]     @relation("FamilyRelationFrom")
+  familyRelationsTo      FamilyRelation[]     @relation("FamilyRelationTo")
+
+  @@index([birthDate])
+}
+
+model FamilyRelation {
+  id             String             @id @default(cuid())
+  fromProfileId  String
+  toProfileId    String
+  type           FamilyRelationType
+  createdAt      DateTime           @default(now())
+  fromProfile    PersonProfile      @relation("FamilyRelationFrom", fields: [fromProfileId], references: [id], onDelete: Cascade)
+  toProfile      PersonProfile      @relation("FamilyRelationTo", fields: [toProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([fromProfileId, toProfileId, type])
+  @@index([toProfileId, type])
+}
+
+model Event {
+  id              String                   @id @default(cuid())
+  circleId         String
+  hostId           String
+  title            String
+  type             EventType
+  description      String?
+  startsAt         DateTime
+  endsAt           DateTime?
+  locationName     String
+  address          String?
+  visibility       String                   @default("CIRCLE")
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  circle           Circle                   @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  host             User                     @relation("HostedEvents", fields: [hostId], references: [id], onDelete: Restrict)
+  invites          EventInvite[]
+  attendances      EventAttendance[]
+  contributionItems EventContributionItem[]
+  comments         EventComment[]
+  photos           EventPhoto[]
+
+  @@index([circleId, startsAt])
+}
+
+model EventInvite {
+  id         String   @id @default(cuid())
+  eventId    String
+  userId     String
+  createdAt  DateTime @default(now())
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
+model EventAttendance {
+  id                String        @id @default(cuid())
+  eventId           String
+  userId            String
+  response          RsvpResponse
+  adultsCount       Int           @default(1)
+  childrenCount     Int           @default(0)
+  totalCount        Int           @default(1)
+  guestsDisplayName String?
+  note              String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  event             Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, response])
+}
+
+model EventContributionItem {
+  id             String             @id @default(cuid())
+  eventId         String
+  name           String
+  quantity       Int                @default(1)
+  note           String?
+  status         ContributionStatus @default(MANQUANT)
+  reservedById   String?
+  reservedNote   String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  event          Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reservedBy     User?              @relation("ReservedItems", fields: [reservedById], references: [id], onDelete: SetNull)
+
+  @@index([eventId, status])
+}
+
+model EventComment {
+  id         String   @id @default(cuid())
+  eventId    String
+  authorId   String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
+}
+
+model CircleMessage {
+  id         String   @id @default(cuid())
+  circleId   String
+  authorId   String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  circle     Circle   @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([circleId, createdAt])
+}
+
+model DirectConversation {
+  id            String                          @id @default(cuid())
+  createdAt     DateTime                        @default(now())
+  updatedAt     DateTime                        @updatedAt
+  participants  DirectConversationParticipant[]
+  messages      DirectMessage[]
+}
+
+model DirectConversationParticipant {
+  id              String              @id @default(cuid())
+  conversationId  String
+  userId          String
+  joinedAt        DateTime            @default(now())
+  conversation    DirectConversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model DirectMessage {
+  id             String             @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+  conversation   DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User               @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model GiftExchange {
+  id            String                    @id @default(cuid())
+  circleId      String
+  title         String
+  description   String?
+  drawDate      DateTime
+  isDrawn       Boolean                   @default(false)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  circle        Circle                    @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  participants  GiftExchangeParticipant[]
+  assignments   GiftExchangeAssignment[]
+
+  @@index([circleId, drawDate])
+}
+
+model GiftExchangeParticipant {
+  id            String       @id @default(cuid())
+  giftExchangeId String
+  userId        String
+  createdAt     DateTime     @default(now())
+  giftExchange  GiftExchange @relation(fields: [giftExchangeId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([giftExchangeId, userId])
+  @@index([userId])
+}
+
+model GiftExchangeAssignment {
+  id              String       @id @default(cuid())
+  giftExchangeId  String
+  giverUserId     String
+  receiverUserId  String
+  createdAt       DateTime     @default(now())
+  giftExchange    GiftExchange @relation(fields: [giftExchangeId], references: [id], onDelete: Cascade)
+  giverUser       User         @relation("GiftAssignedTo", fields: [giverUserId], references: [id], onDelete: Cascade)
+  receiverUser    User         @relation("GiftReceivedBy", fields: [receiverUserId], references: [id], onDelete: Cascade)
+
+  @@unique([giftExchangeId, giverUserId])
+  @@index([giftExchangeId, receiverUserId])
+}
+
+model UserNotificationPreference {
+  id                    String              @id @default(cuid())
+  userId                String              @unique
+  birthdaysChannel      NotificationChannel @default(APP)
+  upcomingEventsChannel NotificationChannel @default(APP)
+  rsvpMissingChannel    NotificationChannel @default(NONE)
+  urgentItemsChannel    NotificationChannel @default(NONE)
+  newMessagesChannel    NotificationChannel @default(APP)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EventPhoto {
+  id         String   @id @default(cuid())
+  eventId    String
+  uploadedBy String
+  url        String
+  caption    String?
+  createdAt  DateTime @default(now())
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
+}
