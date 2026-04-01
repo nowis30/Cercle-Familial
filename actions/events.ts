@@ -381,24 +381,27 @@ export async function deleteEventCommentAction(input: z.infer<typeof deleteEvent
 
 const eventPhotoSchema = z.object({
   eventId: z.string().min(1),
-  url: z.string().startsWith("/uploads/events/", "URL photo invalide").min(1),
+  url: z
+    .string()
+    .min(1)
+    .refine((value) => value.startsWith("/uploads/events/") || value.startsWith("https://"), "URL photo invalide"),
   caption: z.string().optional(),
 });
 
 export async function addEventPhotoAction(input: z.infer<typeof eventPhotoSchema>) {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, message: "Session invalide." };
+    return { success: false, message: "Session invalide.", code: "INVALID_SESSION" };
   }
 
   const parsed = eventPhotoSchema.safeParse(input);
   if (!parsed.success) {
-    return { success: false, message: "Photo invalide." };
+    return { success: false, message: "Photo invalide.", code: "INVALID_PHOTO_INPUT" };
   }
 
   const event = await prisma.event.findUnique({ where: { id: parsed.data.eventId } });
   if (!event) {
-    return { success: false, message: "Evenement introuvable." };
+    return { success: false, message: "Evenement introuvable.", code: "EVENT_NOT_FOUND" };
   }
 
   const membership = await prisma.circleMembership.findUnique({
@@ -411,20 +414,33 @@ export async function addEventPhotoAction(input: z.infer<typeof eventPhotoSchema
   });
 
   if (!membership) {
-    return { success: false, message: "Acces refuse." };
+    return { success: false, message: "Acces refuse.", code: "PERMISSION_DENIED" };
   }
 
-  await prisma.eventPhoto.create({
-    data: {
+  try {
+    await prisma.eventPhoto.create({
+      data: {
+        eventId: event.id,
+        uploadedBy: session.user.id,
+        url: parsed.data.url,
+        caption: parsed.data.caption,
+      },
+    });
+  } catch (error) {
+    console.error("[addEventPhotoAction] Echec enregistrement photo", {
       eventId: event.id,
-      uploadedBy: session.user.id,
-      url: parsed.data.url,
-      caption: parsed.data.caption,
-    },
-  });
+      userId: session.user.id,
+      message: error instanceof Error ? error.message : "Erreur inconnue",
+    });
+    return {
+      success: false,
+      message: "Televersement reussi mais echec d'enregistrement en base de donnees.",
+      code: "DATABASE_SAVE_FAILED",
+    };
+  }
 
   revalidatePath(`/cercles/${event.circleId}/evenements/${event.id}`);
-  return { success: true };
+  return { success: true, code: "OK" };
 }
 
 const deleteEventPhotoSchema = z.object({
