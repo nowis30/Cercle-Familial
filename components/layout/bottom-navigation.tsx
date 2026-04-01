@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Circle, House, MessageCircle, User } from "lucide-react";
+import { CalendarDays, House, MessageCircle, User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/tableau-de-bord", label: "Accueil", icon: House },
-  { href: "/cercles", label: "Cercles", icon: Circle },
   { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/profil", label: "Profil", icon: User },
   { href: "/parametres", label: "Reglages", icon: CalendarDays },

@@ -22,12 +22,36 @@ type ContributionItem = {
   reservedByName?: string | null;
 };
 
+const nameCollator = new Intl.Collator("fr-CA", { sensitivity: "base", usage: "sort" });
+
+function getFirstName(value?: string | null) {
+  if (!value) return "";
+  return value.trim().split(/\s+/)[0] ?? "";
+}
+
 export function EventContributionsPanel({ eventId, items }: { eventId: string; items: ContributionItem[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  const sortedItems = [...items].sort((a, b) => {
+    const aFirstName = getFirstName(a.reservedByName);
+    const bFirstName = getFirstName(b.reservedByName);
+
+    const aHasCarrier = Boolean(aFirstName);
+    const bHasCarrier = Boolean(bFirstName);
+
+    if (aHasCarrier && !bHasCarrier) return -1;
+    if (!aHasCarrier && bHasCarrier) return 1;
+    if (!aHasCarrier && !bHasCarrier) return nameCollator.compare(a.name, b.name);
+
+    const byCarrier = nameCollator.compare(aFirstName, bFirstName);
+    if (byCarrier !== 0) return byCarrier;
+
+    return nameCollator.compare(a.name, b.name);
+  });
 
   return (
     <div className="space-y-3">
@@ -56,17 +80,18 @@ export function EventContributionsPanel({ eventId, items }: { eventId: string; i
       </div>
 
       <ContributionList
-        items={items.map((item) => ({
+        items={sortedItems.map((item) => ({
           id: item.id,
           name: item.name,
           quantity: item.quantity,
-          note: item.note ?? item.reservedByName ?? undefined,
+          note: item.note ?? undefined,
           status: item.status,
+          carrierName: item.reservedByName ?? undefined,
         }))}
       />
 
       <div className="space-y-2">
-        {items.map((item) => (
+        {sortedItems.map((item) => (
           <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white p-3 text-xs">
             <span className="mr-2 font-semibold text-zinc-800">{item.name}</span>
             <Button

@@ -7,17 +7,27 @@ import { Button } from "@/components/ui/button";
 type ConfirmDialogProps = {
   title: string;
   description: string;
+  triggerLabel?: string;
+  triggerVariant?: "default" | "secondary" | "outline" | "ghost" | "destructive";
   confirmLabel?: string;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
 };
 
-export function ConfirmDialog({ title, description, confirmLabel = "Confirmer", onConfirm }: ConfirmDialogProps) {
+export function ConfirmDialog({
+  title,
+  description,
+  triggerLabel = "Supprimer",
+  triggerVariant = "destructive",
+  confirmLabel = "Confirmer",
+  onConfirm,
+}: ConfirmDialogProps) {
   const [open, setOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   return (
     <div>
-      <Button variant="destructive" onClick={() => setOpen(true)}>
-        Ouvrir la confirmation
+      <Button variant={triggerVariant} onClick={() => setOpen(true)}>
+        {triggerLabel}
       </Button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -27,14 +37,17 @@ export function ConfirmDialog({ title, description, confirmLabel = "Confirmer", 
             <div className="mt-4 flex gap-2">
               <Button
                 variant="destructive"
-                onClick={() => {
-                  onConfirm();
+                disabled={isConfirming}
+                onClick={async () => {
+                  setIsConfirming(true);
+                  await onConfirm();
+                  setIsConfirming(false);
                   setOpen(false);
                 }}
               >
-                {confirmLabel}
+                {isConfirming ? "Confirmation..." : confirmLabel}
               </Button>
-              <Button variant="secondary" onClick={() => setOpen(false)}>
+              <Button variant="secondary" disabled={isConfirming} onClick={() => setOpen(false)}>
                 Annuler
               </Button>
             </div>

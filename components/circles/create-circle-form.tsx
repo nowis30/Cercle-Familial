@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { createCircleAction } from "@/actions/circles";
+import { createCircleAction, updateCircleAction } from "@/actions/circles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +22,15 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export function CreateCircleForm() {
+export function CreateCircleForm({
+  mode = "create",
+  circleId,
+  initialValues,
+}: {
+  mode?: "create" | "edit";
+  circleId?: string;
+  initialValues?: Partial<FormValues>;
+}) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string>("");
   const [isSuccessFeedback, setIsSuccessFeedback] = useState(false);
@@ -31,11 +39,11 @@ export function CreateCircleForm() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: "",
-      photoUrl: "",
-      description: "",
-      rules: "",
-      invitePermission: InvitePermission.ADMINS_AND_ADULTS,
+      name: initialValues?.name ?? "",
+      photoUrl: initialValues?.photoUrl ?? "",
+      description: initialValues?.description ?? "",
+      rules: initialValues?.rules ?? "",
+      invitePermission: initialValues?.invitePermission ?? InvitePermission.ADMINS_AND_ADULTS,
     },
   });
 
@@ -46,21 +54,21 @@ export function CreateCircleForm() {
         setIsSubmitting(true);
         setFeedback("");
         setIsSuccessFeedback(false);
-        const result = await createCircleAction(values);
+        const result = mode === "edit" && circleId ? await updateCircleAction({ ...values, circleId }) : await createCircleAction(values);
         setIsSubmitting(false);
 
         if (!result.success) {
-          setFeedback(result.message ?? "Erreur lors de la creation du cercle.");
+          setFeedback(result.message ?? (mode === "edit" ? "Erreur lors de la modification du cercle." : "Erreur lors de la creation du cercle."));
           return;
         }
 
         setIsSuccessFeedback(true);
-        setFeedback("Cercle cree avec succes.");
+        setFeedback(mode === "edit" ? "Cercle modifie avec succes." : "Cercle cree avec succes.");
 
         router.push(`/cercles/${result.circleId}`);
       })}
     >
-      <h2 className="font-serif text-lg font-bold text-zinc-900">Creer un cercle</h2>
+      <h2 className="font-serif text-lg font-bold text-zinc-900">{mode === "edit" ? "Modifier le cercle" : "Creer un cercle"}</h2>
       <Input placeholder="Nom du cercle" {...form.register("name")} />
       <Input placeholder="Photo (URL facultative)" {...form.register("photoUrl")} />
       <Textarea placeholder="Description" {...form.register("description")} />
@@ -75,7 +83,7 @@ export function CreateCircleForm() {
         </p>
       ) : null}
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Creation..." : "Creer le cercle"}
+        {isSubmitting ? "Enregistrement..." : mode === "edit" ? "Enregistrer les changements" : "Creer le cercle"}
       </Button>
     </form>
   );

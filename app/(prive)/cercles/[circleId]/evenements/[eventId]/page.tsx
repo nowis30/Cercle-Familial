@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { EventCommentsPanel } from "@/components/events/event-comments-panel";
 import { EventContributionsPanel } from "@/components/events/event-contributions-panel";
+import { EventManagementActions } from "@/components/events/event-management-actions";
 import { EventPhotosPanel } from "@/components/events/event-photos-panel";
 import { RSVPForm } from "@/components/events/rsvp-form";
 import { AppShell } from "@/components/layout/app-shell";
@@ -9,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { RSVP_LABELS } from "@/lib/constants";
+import { buildGoogleCalendarUrl } from "@/lib/event-calendar";
 import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -31,8 +34,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
     redirect("/cercles");
   }
 
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
+  const event = await prisma.event.findFirst({
+    where: {
+      id: eventId,
+      circleId,
+    },
     include: {
       attendances: true,
       invites: true,
@@ -52,7 +58,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
     },
   });
 
-  if (!event || event.circleId !== circleId) {
+  if (!event) {
     redirect(`/cercles/${circleId}`);
   }
 
@@ -65,6 +71,17 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   const myRsvpVariant = myRsvp?.response === "JE_VIENS" ? "default" : myRsvp?.response === "PEUT_ETRE" ? "warning" : "danger";
   const startsAtLabel = new Date(event.startsAt).toLocaleString("fr-CA");
   const endsAtLabel = event.endsAt ? new Date(event.endsAt).toLocaleString("fr-CA") : null;
+  const canManageEvent = canManageCircle(membership.role) || event.hostId === session.user.id;
+  const addToGoogleCalendarUrl = buildGoogleCalendarUrl({
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    locationName: event.locationName,
+    address: event.address,
+    startsAt: new Date(event.startsAt),
+    endsAt: event.endsAt ? new Date(event.endsAt) : null,
+  });
+  const addToIcsUrl = `/api/calendar/events/${event.id}/ics`;
 
   return (
     <AppShell title={event.title}>
@@ -72,6 +89,25 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
         <p className="text-sm font-semibold text-indigo-700">Debut: {startsAtLabel}</p>
         <p className="mt-1 text-sm text-indigo-700">Fin: {endsAtLabel ?? "Non definie"}</p>
         <p className="mt-1 text-sm text-zinc-700">Lieu: {event.locationName}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={addToGoogleCalendarUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+          >
+            Ajouter au calendrier (Google)
+          </Link>
+          <Link
+            href={addToIcsUrl}
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+          >
+            Ajouter au calendrier (.ics)
+          </Link>
+        </div>
+        <div className="mt-2">
+          <EventManagementActions circleId={circleId} eventId={event.id} canManage={canManageEvent} />
+        </div>
         <div className="mt-2">
           {myRsvp ? <Badge variant={myRsvpVariant}>Mon RSVP: {RSVP_LABELS[myRsvp.response] ?? myRsvp.response}</Badge> : <Badge variant="secondary">Mon RSVP: Non repondu</Badge>}
         </div>

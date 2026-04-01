@@ -6,6 +6,7 @@ type Item = {
   quantity: number;
   status: string;
   note?: string;
+  carrierName?: string;
 };
 
 export function ContributionList({ items }: { items: Item[] }) {

@@ -63,6 +63,117 @@ export async function createCircleAction(input: z.infer<typeof createCircleSchem
   return { success: true, circleId: circle.id };
 }
 
+const updateCircleSchema = z.object({
+  circleId: z.string().min(1),
+  name: z.string().trim().min(2, "Nom requis"),
+  photoUrl: z.string().url().optional().or(z.literal("")),
+  description: z.string().trim().optional(),
+  rules: z.string().trim().optional(),
+  invitePermission: z.nativeEnum(InvitePermission),
+});
+
+export async function updateCircleAction(input: z.infer<typeof updateCircleSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = updateCircleSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? "Donnees invalides." };
+  }
+
+  const data = parsed.data;
+
+  const membership = await prisma.circleMembership.findUnique({
+    where: {
+      circleId_userId: {
+        circleId: data.circleId,
+        userId: session.user.id,
+      },
+    },
+  });
+
+  if (!membership || !canManageCircle(membership.role)) {
+    return { success: false, message: "Action reservee aux admins du cercle." };
+  }
+
+  const existingCircle = await prisma.circle.findUnique({ where: { id: data.circleId } });
+  if (!existingCircle) {
+    return { success: false, message: "Cercle introuvable." };
+  }
+
+  const normalizedName = data.name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+
+  let slug = normalizedName || existingCircle.slug;
+  let suffix = 1;
+  while (await prisma.circle.findFirst({ where: { slug, NOT: { id: data.circleId } }, select: { id: true } })) {
+    slug = `${normalizedName}-${suffix++}`;
+  }
+
+  const circle = await prisma.circle.update({
+    where: { id: data.circleId },
+    data: {
+      name: data.name,
+      slug,
+      photoUrl: data.photoUrl || null,
+      description: data.description || null,
+      rules: data.rules || null,
+      invitePermission: data.invitePermission,
+    },
+  });
+
+  revalidatePath("/cercles");
+  revalidatePath(`/cercles/${circle.id}`);
+  return { success: true, circleId: circle.id };
+}
+
+const deleteCircleSchema = z.object({
+  circleId: z.string().min(1),
+});
+
+export async function deleteCircleAction(input: z.infer<typeof deleteCircleSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = deleteCircleSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: "Requete invalide." };
+  }
+
+  const membership = await prisma.circleMembership.findUnique({
+    where: {
+      circleId_userId: {
+        circleId: parsed.data.circleId,
+        userId: session.user.id,
+      },
+    },
+  });
+
+  if (!membership || !canManageCircle(membership.role)) {
+    return { success: false, message: "Action reservee aux admins du cercle." };
+  }
+
+  const circle = await prisma.circle.findUnique({ where: { id: parsed.data.circleId }, select: { id: true } });
+  if (!circle) {
+    return { success: false, message: "Cercle introuvable." };
+  }
+
+  await prisma.circle.delete({ where: { id: circle.id } });
+
+  revalidatePath("/cercles");
+  revalidatePath("/tableau-de-bord");
+  return { success: true };
+}
+
 const postCircleMessageSchema = z.object({
   circleId: z.string().min(1),
   content: z.string().trim().min(1).max(1000),

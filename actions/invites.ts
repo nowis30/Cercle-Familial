@@ -63,7 +63,7 @@ export async function createCircleInviteAction(input: z.infer<typeof createInvit
     },
   });
 
-  return { success: true, inviteToken: invite.token, inviteUrl: `/invitation/${invite.token}` };
+  return { success: true, inviteToken: invite.token, inviteUrl: `/invite/circle/${invite.token}` };
 }
 
 const joinSchema = z.object({
@@ -85,11 +85,11 @@ export async function joinCircleWithTokenAction(input: z.infer<typeof joinSchema
 
   const invite = await prisma.circleInvite.findUnique({ where: { token: data.token } });
   if (!invite) {
-    return { success: false, message: "Lien d'invitation invalide." };
+    return { success: false, message: "Lien d'invitation invalide.", code: "INVALID_INVITE" };
   }
 
   if (invite.expiresAt < new Date() || invite.usedCount >= invite.maxUses) {
-    return { success: false, message: "Lien d'invitation expire." };
+    return { success: false, message: "Lien d'invitation expire.", code: "EXPIRED_INVITE" };
   }
 
   const existingMembership = await prisma.circleMembership.findUnique({
@@ -114,8 +114,10 @@ export async function joinCircleWithTokenAction(input: z.infer<typeof joinSchema
       where: { id: invite.id },
       data: { usedCount: { increment: 1 } },
     });
+  } else {
+    return { success: true, circleId: invite.circleId, alreadyMember: true, code: "ALREADY_MEMBER" };
   }
 
   revalidatePath("/cercles");
-  return { success: true, circleId: invite.circleId };
+  return { success: true, circleId: invite.circleId, code: "JOINED" };
 }

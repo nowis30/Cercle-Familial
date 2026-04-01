@@ -29,6 +29,12 @@ export default function InscriptionPage() {
   const [feedback, setFeedback] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const getCallbackUrl = () => {
+    if (typeof window === "undefined") return undefined;
+    const requestedCallbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+    return requestedCallbackUrl && requestedCallbackUrl.startsWith("/") ? requestedCallbackUrl : undefined;
+  };
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -61,7 +67,8 @@ export default function InscriptionPage() {
           }
 
           setFeedback(result.message ?? "Compte cree.");
-          router.push("/connexion");
+          const callbackUrl = getCallbackUrl();
+          router.push(callbackUrl ? `/connexion?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/connexion");
         })}
       >
         <Input placeholder="Nom complet" {...form.register("name")} />

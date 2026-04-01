@@ -2,11 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { CircleChat } from "@/components/chat/circle-chat";
+import { CircleManagementActions } from "@/components/circles/circle-management-actions";
 import { CreateInviteForm } from "@/components/circles/create-invite-form";
 import { EventCard } from "@/components/events/event-card";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
+import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export default async function CircleDetailPage({ params }: { params: Promise<{ circleId: string }> }) {
@@ -48,6 +50,9 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
       <Card className="bg-gradient-to-br from-white to-indigo-50/50">
         <p className="font-serif text-lg font-bold text-zinc-900">{membership.circle.name}</p>
         {membership.circle.description ? <p className="mt-1 text-sm text-zinc-600">{membership.circle.description}</p> : null}
+        <div className="mt-3">
+          <CircleManagementActions circleId={circleId} canManage={canManageCircle(membership.role)} />
+        </div>
       </Card>
       <div className="grid grid-cols-2 gap-2 text-sm">
         <Link href={`/cercles/${circleId}/calendrier`} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 font-semibold text-indigo-800 transition-colors hover:bg-indigo-100">

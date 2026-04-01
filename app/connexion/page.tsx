@@ -7,8 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function ConnexionPage() {
-  const [email, setEmail] = useState("admin@cerclefamilial.local");
-  const [password, setPassword] = useState("Famille123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  
+  const getCallbackUrl = () => {
+    if (typeof window === "undefined") return "/tableau-de-bord";
+
+    const requestedCallbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+    return requestedCallbackUrl && requestedCallbackUrl.startsWith("/") ? requestedCallbackUrl : "/tableau-de-bord";
+  };
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-xl bg-zinc-50 px-4 py-8">
@@ -21,12 +28,12 @@ export default function ConnexionPage() {
           await signIn("credentials", {
             email,
             password,
-            callbackUrl: "/tableau-de-bord",
+            callbackUrl: getCallbackUrl(),
           });
         }}
       >
-        <Input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="Courriel" />
-        <Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Mot de passe" />
+        <Input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="Votre e-mail" />
+        <Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Votre mot de passe" />
         <Button type="submit" className="w-full">
           Se connecter
         </Button>
@@ -34,7 +41,7 @@ export default function ConnexionPage() {
       <Button
         variant="secondary"
         className="mt-3 w-full"
-        onClick={async () => signIn("google", { callbackUrl: "/tableau-de-bord" })}
+        onClick={async () => signIn("google", { callbackUrl: getCallbackUrl() })}
       >
         Continuer avec Google
       </Button>

@@ -63,7 +63,6 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
-          capture="environment"
           onChange={(event) => {
             setFeedback("");
             setIsErrorFeedback(false);

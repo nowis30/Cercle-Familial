@@ -7,12 +7,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { createEventAction } from "@/actions/events";
+import { createEventAction, updateEventAction } from "@/actions/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 const schema = z.object({
+  circleId: z.string().min(1, "Cercle requis"),
   title: z.string().min(2, "Titre requis"),
   type: z.nativeEnum(EventType),
   startsAt: z.string().min(1, "Date requise"),
@@ -41,15 +42,36 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 type MemberOption = { id: string; name: string };
+type CircleOption = { id: string; name: string };
+
+type EventInitialValues = {
+  circleId?: string;
+  title?: string;
+  type?: EventType;
+  startsAt?: string;
+  endsAt?: string;
+  locationName?: string;
+  address?: string;
+  description?: string;
+  invitedUserIds?: string[];
+};
 
 export function CreateEventForm({
   circleId,
   members,
   initialStartsAt,
+  initialValues,
+  availableCircles,
+  mode = "create",
+  eventId,
 }: {
   circleId: string;
   members: MemberOption[];
   initialStartsAt?: string;
+  initialValues?: EventInitialValues;
+  availableCircles?: CircleOption[];
+  mode?: "create" | "edit";
+  eventId?: string;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string>("");
@@ -60,14 +82,15 @@ export function CreateEventForm({
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      title: "",
-      type: EventType.SOUPER_FAMILIAL,
-      startsAt: initialStartsAt ?? "",
-      endsAt: "",
-      locationName: "",
-      address: "",
-      description: "",
-      invitedUserIds: [],
+      circleId: initialValues?.circleId ?? circleId,
+      title: initialValues?.title ?? "",
+      type: initialValues?.type ?? EventType.SOUPER_FAMILIAL,
+      startsAt: initialValues?.startsAt ?? initialStartsAt ?? "",
+      endsAt: initialValues?.endsAt ?? "",
+      locationName: initialValues?.locationName ?? "",
+      address: initialValues?.address ?? "",
+      description: initialValues?.description ?? "",
+      invitedUserIds: initialValues?.invitedUserIds ?? [],
     },
   });
 
@@ -80,32 +103,61 @@ export function CreateEventForm({
         setIsSuccessFeedback(false);
         setIsErrorFeedback(false);
 
-        const result = await createEventAction({
-          circleId,
-          title: values.title,
-          type: values.type,
-          description: values.description,
-          startsAt: new Date(values.startsAt),
-          endsAt: values.endsAt ? new Date(values.endsAt) : undefined,
-          locationName: values.locationName,
-          address: values.address,
-          invitedUserIds: values.invitedUserIds,
-        });
+        const result =
+          mode === "edit" && eventId
+            ? await updateEventAction({
+                eventId,
+                circleId: values.circleId,
+                title: values.title,
+                type: values.type,
+                description: values.description,
+                startsAt: new Date(values.startsAt),
+                endsAt: values.endsAt ? new Date(values.endsAt) : undefined,
+                locationName: values.locationName,
+                address: values.address,
+                invitedUserIds: values.invitedUserIds,
+              })
+            : await createEventAction({
+                circleId: values.circleId,
+                title: values.title,
+                type: values.type,
+                description: values.description,
+                startsAt: new Date(values.startsAt),
+                endsAt: values.endsAt ? new Date(values.endsAt) : undefined,
+                locationName: values.locationName,
+                address: values.address,
+                invitedUserIds: values.invitedUserIds,
+              });
 
         setIsSubmitting(false);
         if (!result.success) {
           setIsErrorFeedback(true);
-          setFeedback(result.message ?? "Impossible de creer l'evenement.");
+          setFeedback(result.message ?? (mode === "edit" ? "Impossible de modifier l'evenement." : "Impossible de creer l'evenement."));
           return;
         }
 
         setIsSuccessFeedback(true);
         setIsErrorFeedback(false);
-        setFeedback("Evenement cree avec succes.");
+        setFeedback(mode === "edit" ? "Evenement modifie avec succes." : "Evenement cree avec succes.");
 
-        router.push(`/cercles/${circleId}/evenements/${result.eventId}`);
+        const targetCircleId = "circleId" in result && result.circleId ? result.circleId : values.circleId;
+        router.push(`/cercles/${targetCircleId}/evenements/${result.eventId}`);
       })}
     >
+      {availableCircles && availableCircles.length > 0 ? (
+        <>
+          <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Cercle</label>
+          <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...form.register("circleId")}>
+            {availableCircles.map((circle) => (
+              <option key={circle.id} value={circle.id}>
+                {circle.name}
+              </option>
+            ))}
+          </select>
+          {form.formState.errors.circleId ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.circleId.message}</p> : null}
+        </>
+      ) : null}
+
       <Input placeholder="Titre" {...form.register("title")} />
       {form.formState.errors.title ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.title.message}</p> : null}
       <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...form.register("type")}>
@@ -133,6 +185,7 @@ export function CreateEventForm({
 
       <div className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3">
         <p className="text-sm font-semibold text-zinc-800">Invites cibles</p>
+        <p className="text-xs text-zinc-600">Les invites sont appliquees pour le cercle selectionne.</p>
         {members.map((member) => (
           <label key={member.id} className="flex items-center gap-2 rounded-xl px-2 py-1 text-sm text-zinc-700 hover:bg-white/70">
             <input className="h-4 w-4 rounded border-indigo-200 text-indigo-600 focus:ring-indigo-300" type="checkbox" value={member.id} {...form.register("invitedUserIds")} />
@@ -147,7 +200,7 @@ export function CreateEventForm({
         </p>
       ) : null}
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Creation..." : "Creer l'evenement"}
+        {isSubmitting ? (mode === "edit" ? "Enregistrement..." : "Creation...") : mode === "edit" ? "Enregistrer les changements" : "Creer l'evenement"}
       </Button>
     </form>
   );

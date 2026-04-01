@@ -68,6 +68,16 @@ export async function createEventAction(input: z.infer<typeof createEventSchema>
   }
 
   const invitedUserIds = Array.from(new Set(data.invitedUserIds.filter(Boolean)));
+  const validInvitedMemberships = invitedUserIds.length
+    ? await prisma.circleMembership.findMany({
+        where: {
+          circleId: data.circleId,
+          userId: { in: invitedUserIds },
+        },
+        select: { userId: true },
+      })
+    : [];
+  const validInvitedUserIds = validInvitedMemberships.map((membershipItem) => membershipItem.userId);
 
   try {
     const event = await prisma.event.create({
@@ -81,11 +91,11 @@ export async function createEventAction(input: z.infer<typeof createEventSchema>
         endsAt: data.endsAt,
         locationName: data.locationName,
         address: data.address,
-        ...(invitedUserIds.length > 0
+        ...(validInvitedUserIds.length > 0
           ? {
               invites: {
                 createMany: {
-                  data: invitedUserIds.map((userId) => ({ userId })),
+                  data: validInvitedUserIds.map((userId) => ({ userId })),
                 },
               },
             }
@@ -111,6 +121,177 @@ export async function createEventAction(input: z.infer<typeof createEventSchema>
       code: "DATABASE_CREATE_FAILED",
     };
   }
+}
+
+const updateEventSchema = z
+  .object({
+    eventId: z.string().min(1),
+    circleId: z.string().min(1),
+    title: z.string().min(2),
+    type: z.nativeEnum(EventType),
+    description: z.string().optional(),
+    startsAt: z.coerce.date(),
+    endsAt: z.coerce.date().optional(),
+    locationName: z.string().min(2),
+    address: z.string().optional(),
+    invitedUserIds: z.array(z.string()).default([]),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.endsAt) return;
+
+    if (values.endsAt < values.startsAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endsAt"],
+        message: "L'heure de fin ne peut pas etre avant l'heure de debut.",
+      });
+    }
+  });
+
+export async function updateEventAction(input: z.infer<typeof updateEventSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = updateEventSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  const data = parsed.data;
+
+  const event = await prisma.event.findUnique({
+    where: { id: data.eventId },
+    include: { invites: true },
+  });
+
+  if (!event) {
+    return { success: false, message: "Evenement introuvable." };
+  }
+
+  const sourceMembership = await prisma.circleMembership.findUnique({
+    where: {
+      circleId_userId: {
+        circleId: event.circleId,
+        userId: session.user.id,
+      },
+    },
+  });
+
+  if (!sourceMembership) {
+    return { success: false, message: "Acces refuse." };
+  }
+
+  const canManageEvent = canManageCircle(sourceMembership.role) || event.hostId === session.user.id;
+  if (!canManageEvent) {
+    return { success: false, message: "Seul l'organisateur ou un admin peut modifier cet evenement." };
+  }
+
+  const targetMembership = await prisma.circleMembership.findUnique({
+    where: {
+      circleId_userId: {
+        circleId: data.circleId,
+        userId: session.user.id,
+      },
+    },
+  });
+
+  if (!targetMembership || !canCreateEvent(targetMembership.role)) {
+    return { success: false, message: "Vous ne pouvez pas affecter cet evenement a ce cercle." };
+  }
+
+  const invitedUserIds = Array.from(new Set(data.invitedUserIds.filter(Boolean)));
+  const validInvitedMemberships = invitedUserIds.length
+    ? await prisma.circleMembership.findMany({
+        where: {
+          circleId: data.circleId,
+          userId: { in: invitedUserIds },
+        },
+        select: { userId: true },
+      })
+    : [];
+  const validInvitedUserIds = validInvitedMemberships.map((membershipItem) => membershipItem.userId);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.event.update({
+      where: { id: event.id },
+      data: {
+        circleId: data.circleId,
+        title: data.title,
+        type: data.type,
+        description: data.description,
+        startsAt: data.startsAt,
+        endsAt: data.endsAt,
+        locationName: data.locationName,
+        address: data.address,
+      },
+    });
+
+    await tx.eventInvite.deleteMany({ where: { eventId: event.id } });
+
+    if (validInvitedUserIds.length > 0) {
+      await tx.eventInvite.createMany({
+        data: validInvitedUserIds.map((userId) => ({ eventId: event.id, userId })),
+      });
+    }
+  });
+
+  revalidatePath(`/cercles/${event.circleId}`);
+  revalidatePath(`/cercles/${event.circleId}/calendrier`);
+  revalidatePath(`/cercles/${event.circleId}/evenements/${event.id}`);
+  revalidatePath(`/cercles/${data.circleId}`);
+  revalidatePath(`/cercles/${data.circleId}/calendrier`);
+  revalidatePath(`/cercles/${data.circleId}/evenements/${event.id}`);
+
+  return { success: true, eventId: event.id, circleId: data.circleId };
+}
+
+const deleteEventSchema = z.object({
+  eventId: z.string().min(1),
+});
+
+export async function deleteEventAction(input: z.infer<typeof deleteEventSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = deleteEventSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: "Requete invalide." };
+  }
+
+  const event = await prisma.event.findUnique({ where: { id: parsed.data.eventId } });
+  if (!event) {
+    return { success: false, message: "Evenement introuvable." };
+  }
+
+  const membership = await prisma.circleMembership.findUnique({
+    where: {
+      circleId_userId: {
+        circleId: event.circleId,
+        userId: session.user.id,
+      },
+    },
+  });
+
+  if (!membership) {
+    return { success: false, message: "Acces refuse." };
+  }
+
+  const canDeleteEvent = canManageCircle(membership.role) || event.hostId === session.user.id;
+  if (!canDeleteEvent) {
+    return { success: false, message: "Seul l'organisateur ou un admin peut supprimer cet evenement." };
+  }
+
+  await prisma.event.delete({ where: { id: event.id } });
+
+  revalidatePath(`/cercles/${event.circleId}`);
+  revalidatePath(`/cercles/${event.circleId}/calendrier`);
+  revalidatePath(`/cercles/${event.circleId}/evenements/${event.id}`);
+
+  return { success: true, circleId: event.circleId };
 }
 
 const rsvpSchema = z.object({
