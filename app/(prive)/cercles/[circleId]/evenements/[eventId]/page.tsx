@@ -15,6 +15,7 @@ import { formatEventDateTime } from "@/lib/event-datetime";
 import { buildGoogleCalendarUrl } from "@/lib/event-calendar";
 import { canCreateEvent, canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ circleId: string; eventId: string }> }) {
   const { circleId, eventId } = await params;
@@ -72,6 +73,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
     redirect(`/cercles/${circleId}`);
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { timezone: true },
+  });
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
+
   const myRsvp = event.attendances.find((attendance) => attendance.userId === session.user.id);
   const managedFamilyMembers = await prisma.managedFamilyMember.findMany({
     where: { ownerUserId: session.user.id },
@@ -83,8 +90,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   const totalChildren = event.attendances.reduce((sum, attendance) => sum + attendance.childrenCount, 0);
   const missingResponses = Math.max(0, event.invites.length - totalResponses);
   const myRsvpVariant = myRsvp?.response === "JE_VIENS" ? "default" : myRsvp?.response === "PEUT_ETRE" ? "warning" : "danger";
-  const startsAtLabel = formatEventDateTime(event.startsAt);
-  const endsAtLabel = event.endsAt ? formatEventDateTime(event.endsAt) : null;
+  const startsAtLabel = formatEventDateTime(event.startsAt, effectiveTimeZone);
+  const endsAtLabel = event.endsAt ? formatEventDateTime(event.endsAt, effectiveTimeZone) : null;
   const canManageEvent = canManageCircle(membership.role) || event.hostId === session.user.id;
   const canManageContributionItems = canCreateEvent(membership.role);
   const addToGoogleCalendarUrl = buildGoogleCalendarUrl({
@@ -95,6 +102,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
     address: event.address,
     startsAt: new Date(event.startsAt),
     endsAt: event.endsAt ? new Date(event.endsAt) : null,
+    timeZone: effectiveTimeZone,
   });
   const addToIcsUrl = `/api/calendar/events/${event.id}/ics`;
 

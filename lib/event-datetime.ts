@@ -1,6 +1,4 @@
-const DEFAULT_EVENT_TIME_ZONE = "America/Toronto";
-
-export const EVENT_TIME_ZONE = process.env.EVENT_TIME_ZONE || process.env.NEXT_PUBLIC_EVENT_TIME_ZONE || DEFAULT_EVENT_TIME_ZONE;
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 type ZonedParts = {
   year: number;
@@ -19,34 +17,54 @@ function safeFormatter(locale: string, options: Intl.DateTimeFormatOptions) {
   }
 }
 
-const PARTS_FORMATTER = safeFormatter("en-CA", {
-  timeZone: EVENT_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
+type FormatterSet = {
+  parts: Intl.DateTimeFormat;
+  date: Intl.DateTimeFormat;
+  time: Intl.DateTimeFormat;
+};
 
-const DATE_FORMATTER = safeFormatter("fr-CA", {
-  timeZone: EVENT_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
+const formatterCache = new Map<string, FormatterSet>();
 
-const TIME_FORMATTER = safeFormatter("fr-CA", {
-  timeZone: EVENT_TIME_ZONE,
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
+function getFormatters(timeZone?: string) {
+  const effectiveTimeZone = getEffectiveTimeZone(timeZone);
+  const cached = formatterCache.get(effectiveTimeZone);
+  if (cached) {
+    return cached;
+  }
 
-function getZonedParts(value: Date): ZonedParts {
+  const set: FormatterSet = {
+    parts: safeFormatter("en-CA", {
+      timeZone: effectiveTimeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }),
+    date: safeFormatter("fr-CA", {
+      timeZone: effectiveTimeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }),
+    time: safeFormatter("fr-CA", {
+      timeZone: effectiveTimeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }),
+  };
+
+  formatterCache.set(effectiveTimeZone, set);
+  return set;
+}
+
+function getZonedParts(value: Date, timeZone?: string): ZonedParts {
+  const formatters = getFormatters(timeZone);
   const map = new Map<string, string>();
-  for (const part of PARTS_FORMATTER.formatToParts(value)) {
+  for (const part of formatters.parts.formatToParts(value)) {
     if (part.type !== "literal") {
       map.set(part.type, part.value);
     }
@@ -89,7 +107,7 @@ function toDateTimeLocalString(parts: { year: number; month: number; day: number
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
-export function parseEventDateTimeLocal(value: string) {
+export function parseEventDateTimeLocal(value: string, timeZone?: string) {
   const parsed = parseDateTimeLocal(value);
   if (!parsed) {
     throw new Error("Format datetime-local invalide");
@@ -100,7 +118,7 @@ export function parseEventDateTimeLocal(value: string) {
   const targetEpoch = Date.UTC(parsed.year, parsed.month - 1, parsed.day, parsed.hour, parsed.minute, 0, 0);
 
   for (let i = 0; i < 4; i++) {
-    const zoned = getZonedParts(new Date(timestamp));
+    const zoned = getZonedParts(new Date(timestamp), timeZone);
     const observedEpoch = Date.UTC(zoned.year, zoned.month - 1, zoned.day, zoned.hour, zoned.minute, 0, 0);
     const diff = targetEpoch - observedEpoch;
     if (diff === 0) break;
@@ -110,40 +128,40 @@ export function parseEventDateTimeLocal(value: string) {
   return new Date(timestamp);
 }
 
-export function tryParseEventDateTimeLocal(value: string) {
+export function tryParseEventDateTimeLocal(value: string, timeZone?: string) {
   try {
-    return parseEventDateTimeLocal(value);
+    return parseEventDateTimeLocal(value, timeZone);
   } catch {
     return null;
   }
 }
 
-export function toEventDateTimeLocalValue(value?: Date | string | null) {
+export function toEventDateTimeLocalValue(value?: Date | string | null, timeZone?: string) {
   if (!value) return "";
   const date = typeof value === "string" ? new Date(value) : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
 
-  const parts = getZonedParts(date);
+  const parts = getZonedParts(date, timeZone);
   return toDateTimeLocalString(parts);
 }
 
-export function formatEventDate(value: Date | string) {
+export function formatEventDate(value: Date | string, timeZone?: string) {
   const date = typeof value === "string" ? new Date(value) : value;
-  return DATE_FORMATTER.format(date);
+  return getFormatters(timeZone).date.format(date);
 }
 
-export function formatEventTime(value: Date | string) {
+export function formatEventTime(value: Date | string, timeZone?: string) {
   const date = typeof value === "string" ? new Date(value) : value;
-  return TIME_FORMATTER.format(date);
+  return getFormatters(timeZone).time.format(date);
 }
 
-export function formatEventDateTime(value: Date | string) {
-  return `${formatEventDate(value)} ${formatEventTime(value)}`;
+export function formatEventDateTime(value: Date | string, timeZone?: string) {
+  return `${formatEventDate(value, timeZone)} ${formatEventTime(value, timeZone)}`;
 }
 
-export function toEventDateKey(value: Date | string) {
+export function toEventDateKey(value: Date | string, timeZone?: string) {
   const date = typeof value === "string" ? new Date(value) : value;
-  const parts = getZonedParts(date);
+  const parts = getZonedParts(date, timeZone);
   const yyyy = String(parts.year).padStart(4, "0");
   const mm = String(parts.month).padStart(2, "0");
   const dd = String(parts.day).padStart(2, "0");
@@ -160,23 +178,23 @@ function addOneDay(dateKey: string) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export function getUtcRangeForEventDay(dateKey: string) {
-  const start = parseEventDateTimeLocal(`${dateKey}T00:00`);
+export function getUtcRangeForEventDay(dateKey: string, timeZone?: string) {
+  const start = parseEventDateTimeLocal(`${dateKey}T00:00`, timeZone);
   const nextDayKey = addOneDay(dateKey);
-  const nextStart = parseEventDateTimeLocal(`${nextDayKey}T00:00`);
+  const nextStart = parseEventDateTimeLocal(`${nextDayKey}T00:00`, timeZone);
   const end = new Date(nextStart.getTime() - 1);
   return { start, end };
 }
 
-export function getUtcRangeForEventMonth(monthKey: string) {
+export function getUtcRangeForEventMonth(monthKey: string, timeZone?: string) {
   const [year, month] = monthKey.split("-").map(Number);
   const startKey = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
   const nextMonthDate = new Date(Date.UTC(year, month - 1, 1));
   nextMonthDate.setUTCMonth(nextMonthDate.getUTCMonth() + 1);
   const nextMonthKey = `${String(nextMonthDate.getUTCFullYear()).padStart(4, "0")}-${String(nextMonthDate.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
-  const start = parseEventDateTimeLocal(`${startKey}T00:00`);
-  const nextStart = parseEventDateTimeLocal(`${nextMonthKey}T00:00`);
+  const start = parseEventDateTimeLocal(`${startKey}T00:00`, timeZone);
+  const nextStart = parseEventDateTimeLocal(`${nextMonthKey}T00:00`, timeZone);
   const end = new Date(nextStart.getTime() - 1);
 
   return { start, end };

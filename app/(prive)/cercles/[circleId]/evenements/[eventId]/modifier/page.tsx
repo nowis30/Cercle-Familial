@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { toEventDateTimeLocalValue } from "@/lib/event-datetime";
 import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 export default async function ModifierEvenementPage({
   params,
@@ -20,7 +21,7 @@ export default async function ModifierEvenementPage({
     redirect("/connexion");
   }
 
-  const [membership, event, circles] = await Promise.all([
+  const [membership, event, circles, user] = await Promise.all([
     prisma.circleMembership.findUnique({
       where: {
         circleId_userId: {
@@ -46,7 +47,13 @@ export default async function ModifierEvenementPage({
       include: { circle: true },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { timezone: true },
+    }),
   ]);
+
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
   if (!membership || !event) {
     redirect(`/cercles/${circleId}`);
@@ -75,12 +82,13 @@ export default async function ModifierEvenementPage({
         circleId={event.circleId}
         availableCircles={circles.map((entry) => ({ id: entry.circle.id, name: entry.circle.name }))}
         members={members.map((member) => ({ id: member.userId, name: member.user.name }))}
+        effectiveTimeZone={effectiveTimeZone}
         initialValues={{
           circleId: event.circleId,
           title: event.title,
           type: event.type,
-          startsAt: toEventDateTimeLocalValue(event.startsAt),
-          endsAt: toEventDateTimeLocalValue(event.endsAt),
+          startsAt: toEventDateTimeLocalValue(event.startsAt, effectiveTimeZone),
+          endsAt: toEventDateTimeLocalValue(event.endsAt, effectiveTimeZone),
           locationName: event.locationName,
           address: event.address ?? "",
           description: event.description ?? "",

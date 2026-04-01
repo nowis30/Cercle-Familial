@@ -1,3 +1,5 @@
+import { getEffectiveTimeZone } from "@/lib/timezone";
+
 export type CalendarEventPayload = {
   id: string;
   title: string;
@@ -6,6 +8,7 @@ export type CalendarEventPayload = {
   address?: string | null;
   startsAt: Date;
   endsAt?: Date | null;
+  timeZone?: string;
 };
 
 function toUtcTimestamp(value: Date) {
@@ -44,7 +47,7 @@ function toGoogleDates(payload: CalendarEventPayload) {
 export function buildGoogleCalendarUrl(payload: CalendarEventPayload) {
   const location = toIcsLocation(payload);
   const description = toIcsDescription(payload);
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const timeZone = getEffectiveTimeZone(payload.timeZone);
 
   const params = new URLSearchParams({
     action: "TEMPLATE",

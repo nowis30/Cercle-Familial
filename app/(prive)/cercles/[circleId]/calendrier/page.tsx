@@ -16,6 +16,7 @@ import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
 import { formatEventTime, getUtcRangeForEventMonth, toEventDateKey } from "@/lib/event-datetime";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 type DayItem = {
   id: string;
@@ -54,6 +55,12 @@ export default async function CalendrierPage({
     redirect("/cercles");
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { timezone: true },
+  });
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
+
   const now = month ? parseISO(`${month}-01`) : new Date();
   const currentMonth = Number.isNaN(now.getTime()) ? new Date() : now;
   const monthStart = startOfMonth(currentMonth);
@@ -62,7 +69,7 @@ export default async function CalendrierPage({
   const selectedType = type ?? "ALL";
   const eventWhereType = selectedType === "ALL" ? undefined : selectedType;
   const monthKey = format(monthStart, "yyyy-MM");
-  const monthUtcRange = getUtcRangeForEventMonth(monthKey);
+  const monthUtcRange = getUtcRangeForEventMonth(monthKey, effectiveTimeZone);
 
   const [events, birthdays, importantDates] = await Promise.all([
     prisma.event.findMany({
@@ -111,16 +118,16 @@ export default async function CalendrierPage({
   };
 
   for (const event of events) {
-    const dateKey = toEventDateKey(event.startsAt);
+    const dateKey = toEventDateKey(event.startsAt, effectiveTimeZone);
     pushDayItem(dateKey, {
       id: event.id,
       kind: "event",
       label: event.title,
       href: `/cercles/${circleId}/evenements/${event.id}`,
-      timeLabel: formatEventTime(event.startsAt),
+      timeLabel: formatEventTime(event.startsAt, effectiveTimeZone),
       timeRangeLabel: event.endsAt
-        ? `${formatEventTime(event.startsAt)} - ${formatEventTime(event.endsAt)}`
-        : `${formatEventTime(event.startsAt)} - fin non definie`,
+        ? `${formatEventTime(event.startsAt, effectiveTimeZone)} - ${formatEventTime(event.endsAt, effectiveTimeZone)}`
+        : `${formatEventTime(event.startsAt, effectiveTimeZone)} - fin non definie`,
     });
   }
 

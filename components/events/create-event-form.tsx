@@ -11,7 +11,7 @@ import { createEventAction, updateEventAction } from "@/actions/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { parseEventDateTimeLocal, tryParseEventDateTimeLocal } from "@/lib/event-datetime";
+import { tryParseEventDateTimeLocal } from "@/lib/event-datetime";
 
 const schema = z.object({
   circleId: z.string().min(1, "Cercle requis"),
@@ -23,21 +23,6 @@ const schema = z.object({
   address: z.string().optional(),
   description: z.string().optional(),
   invitedUserIds: z.array(z.string()),
-}).superRefine((values, ctx) => {
-  if (!values.endsAt) return;
-
-  const startsAt = tryParseEventDateTimeLocal(values.startsAt);
-  const endsAt = tryParseEventDateTimeLocal(values.endsAt);
-
-  if (!startsAt || !endsAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return;
-
-  if (endsAt < startsAt) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["endsAt"],
-      message: "L'heure de fin ne peut pas etre avant l'heure de debut.",
-    });
-  }
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -65,6 +50,7 @@ export function CreateEventForm({
   availableCircles,
   mode = "create",
   eventId,
+  effectiveTimeZone,
 }: {
   circleId: string;
   members: MemberOption[];
@@ -73,6 +59,7 @@ export function CreateEventForm({
   availableCircles?: CircleOption[];
   mode?: "create" | "edit";
   eventId?: string;
+  effectiveTimeZone: string;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string>("");
@@ -104,6 +91,29 @@ export function CreateEventForm({
         setIsSuccessFeedback(false);
         setIsErrorFeedback(false);
 
+        const startsAt = tryParseEventDateTimeLocal(values.startsAt, effectiveTimeZone);
+        if (!startsAt || Number.isNaN(startsAt.getTime())) {
+          setIsSubmitting(false);
+          setIsErrorFeedback(true);
+          setFeedback("Date de debut invalide.");
+          return;
+        }
+
+        const endsAt = values.endsAt ? tryParseEventDateTimeLocal(values.endsAt, effectiveTimeZone) : null;
+        if (values.endsAt && (!endsAt || Number.isNaN(endsAt.getTime()))) {
+          setIsSubmitting(false);
+          setIsErrorFeedback(true);
+          setFeedback("Date de fin invalide.");
+          return;
+        }
+
+        if (endsAt && endsAt < startsAt) {
+          setIsSubmitting(false);
+          setIsErrorFeedback(true);
+          setFeedback("L'heure de fin ne peut pas etre avant l'heure de debut.");
+          return;
+        }
+
         const result =
           mode === "edit" && eventId
             ? await updateEventAction({
@@ -112,8 +122,8 @@ export function CreateEventForm({
                 title: values.title,
                 type: values.type,
                 description: values.description,
-                startsAt: parseEventDateTimeLocal(values.startsAt),
-                endsAt: values.endsAt ? parseEventDateTimeLocal(values.endsAt) : undefined,
+                startsAt,
+                endsAt: endsAt ?? undefined,
                 locationName: values.locationName,
                 address: values.address,
                 invitedUserIds: values.invitedUserIds,
@@ -123,8 +133,8 @@ export function CreateEventForm({
                 title: values.title,
                 type: values.type,
                 description: values.description,
-                startsAt: parseEventDateTimeLocal(values.startsAt),
-                endsAt: values.endsAt ? parseEventDateTimeLocal(values.endsAt) : undefined,
+                startsAt,
+                endsAt: endsAt ?? undefined,
                 locationName: values.locationName,
                 address: values.address,
                 invitedUserIds: values.invitedUserIds,
@@ -174,6 +184,7 @@ export function CreateEventForm({
       {form.formState.errors.type ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.type.message}</p> : null}
       <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Date et heure de debut</label>
       <Input type="datetime-local" {...form.register("startsAt")} />
+      <p className="text-xs text-zinc-500">Fuseau utilise: {effectiveTimeZone}</p>
       {form.formState.errors.startsAt ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.startsAt.message}</p> : null}
       <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Date et heure de fin (optionnel)</label>
       <Input type="datetime-local" {...form.register("endsAt")} />

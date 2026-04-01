@@ -9,6 +9,7 @@ import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth } from "@/lib/calendar";
 import { formatEventTime, getUtcRangeForEventDay } from "@/lib/event-datetime";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 function isSameMonthDay(dateA: Date, dateB: Date) {
   return dateA.getMonth() === dateB.getMonth() && dateA.getDate() === dateB.getDate();
@@ -39,6 +40,12 @@ export default async function JourCalendrierPage({
     redirect("/cercles");
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { timezone: true },
+  });
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
+
   const isDateFormatValid = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const selectedDate = parseISO(date);
   const isValidDate = isDateFormatValid && !Number.isNaN(selectedDate.getTime()) && format(selectedDate, "yyyy-MM-dd") === date;
@@ -47,7 +54,7 @@ export default async function JourCalendrierPage({
     redirect(`/cercles/${circleId}/calendrier`);
   }
 
-  const dayUtcRange = getUtcRangeForEventDay(date);
+  const dayUtcRange = getUtcRangeForEventDay(date, effectiveTimeZone);
 
   const [events, birthdays, importantDates] = await Promise.all([
     prisma.event.findMany({
@@ -154,8 +161,8 @@ export default async function JourCalendrierPage({
               >
                 <p className="text-sm font-semibold text-zinc-900">{event.title}</p>
                 <p className="text-xs text-zinc-600">
-                  {formatEventTime(event.startsAt)}
-                  {event.endsAt ? ` - ${formatEventTime(event.endsAt)}` : " - fin non definie"}
+                  {formatEventTime(event.startsAt, effectiveTimeZone)}
+                  {event.endsAt ? ` - ${formatEventTime(event.endsAt, effectiveTimeZone)}` : " - fin non definie"}
                   {event.locationName ? ` - ${event.locationName}` : ""}
                 </p>
               </Link>

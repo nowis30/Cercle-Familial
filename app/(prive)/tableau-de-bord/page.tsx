@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
 import { formatEventDateTime, formatEventTime, getUtcRangeForEventMonth, toEventDateKey } from "@/lib/event-datetime";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 type HomeCalendarItem = {
   id: string;
@@ -32,11 +33,19 @@ export default async function TableauDeBordPage({
 
   const { month, circleId: selectedCircleId } = await searchParams;
 
-  const memberships = await prisma.circleMembership.findMany({
-    where: { userId: session.user.id },
-    include: { circle: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const [memberships, user] = await Promise.all([
+    prisma.circleMembership.findMany({
+      where: { userId: session.user.id },
+      include: { circle: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { timezone: true },
+    }),
+  ]);
+
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
   if (memberships.length === 0) {
     return (
@@ -61,7 +70,7 @@ export default async function TableauDeBordPage({
   const prevMonth = format(addMonths(monthStart, -1), "yyyy-MM");
   const nextMonth = format(addMonths(monthStart, 1), "yyyy-MM");
   const monthKey = format(monthStart, "yyyy-MM");
-  const monthUtcRange = getUtcRangeForEventMonth(monthKey);
+  const monthUtcRange = getUtcRangeForEventMonth(monthKey, effectiveTimeZone);
   const monthGridDates = getMonthGridDates(monthStart);
   const holidays = getHolidayEntriesForMonth(monthStart.getFullYear(), monthStart.getMonth());
 
@@ -124,12 +133,12 @@ export default async function TableauDeBordPage({
 
   for (const event of monthEvents) {
     const eventDate = new Date(event.startsAt);
-    const dateKey = toEventDateKey(eventDate);
+    const dateKey = toEventDateKey(eventDate, effectiveTimeZone);
     pushDayItem(dateKey, {
       id: `event-${event.id}`,
       label: event.title,
       kind: "event",
-      timeLabel: formatEventTime(eventDate),
+      timeLabel: formatEventTime(eventDate, effectiveTimeZone),
     });
   }
 
@@ -279,8 +288,8 @@ export default async function TableauDeBordPage({
               id: event.id,
               title: event.title,
               type: event.type,
-              startsAt: formatEventDateTime(event.startsAt),
-              endsAt: event.endsAt ? formatEventDateTime(event.endsAt) : undefined,
+              startsAt: formatEventDateTime(event.startsAt, effectiveTimeZone),
+              endsAt: event.endsAt ? formatEventDateTime(event.endsAt, effectiveTimeZone) : undefined,
               locationName: event.locationName,
               missingResponses: Math.max(0, event.invites.length - event.attendances.length),
             }}

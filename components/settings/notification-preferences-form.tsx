@@ -15,11 +15,20 @@ const schema = z.object({
   rsvpMissingChannel: z.enum(["APP", "EMAIL", "NONE"]),
   urgentItemsChannel: z.enum(["APP", "EMAIL", "NONE"]),
   newMessagesChannel: z.enum(["APP", "EMAIL", "NONE"]),
+  timezone: z.string().min(1, "Fuseau horaire requis"),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-export function NotificationPreferencesForm({ initialValues }: { initialValues: FormValues }) {
+export function NotificationPreferencesForm({
+  initialValues,
+  timeZoneOptions,
+  appDefaultTimeZone,
+}: {
+  initialValues: FormValues;
+  timeZoneOptions: string[];
+  appDefaultTimeZone: string;
+}) {
   const [feedback, setFeedback] = useState("");
   const [isSuccessFeedback, setIsSuccessFeedback] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +50,18 @@ export function NotificationPreferencesForm({ initialValues }: { initialValues: 
       })}
       className="space-y-3 rounded-3xl border border-indigo-100 bg-white p-4"
     >
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-zinc-700">Fuseau horaire</label>
+        <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("timezone")}>
+          {timeZoneOptions.map((timeZone) => (
+            <option key={timeZone} value={timeZone}>
+              {timeZone}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-zinc-500">Fuseau par defaut de l&apos;application: {appDefaultTimeZone}</p>
+      </div>
+
       <div>
         <label className="mb-1 block text-sm font-semibold text-zinc-700">Anniversaires</label>
         <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("birthdaysChannel")}>

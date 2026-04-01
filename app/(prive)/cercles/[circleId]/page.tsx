@@ -11,6 +11,7 @@ import { auth } from "@/lib/auth";
 import { formatEventDateTime } from "@/lib/event-datetime";
 import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 export default async function CircleDetailPage({ params }: { params: Promise<{ circleId: string }> }) {
   const { circleId } = await params;
@@ -32,6 +33,12 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
   if (!membership) {
     redirect("/cercles");
   }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { timezone: true },
+  });
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
   const events = await prisma.event.findMany({
     where: { circleId },
@@ -87,8 +94,8 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
                 id: event.id,
                 title: event.title,
                 type: event.type,
-                startsAt: formatEventDateTime(event.startsAt),
-                endsAt: event.endsAt ? formatEventDateTime(event.endsAt) : undefined,
+                startsAt: formatEventDateTime(event.startsAt, effectiveTimeZone),
+                endsAt: event.endsAt ? formatEventDateTime(event.endsAt, effectiveTimeZone) : undefined,
                 locationName: event.locationName,
               }}
             />

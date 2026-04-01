@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { canCreateEvent } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveTimeZone } from "@/lib/timezone";
 
 export default async function NouvelEvenementPage({
   params,
@@ -21,18 +22,26 @@ export default async function NouvelEvenementPage({
     redirect("/connexion");
   }
 
-  const membership = await prisma.circleMembership.findUnique({
-    where: {
-      circleId_userId: {
-        circleId,
-        userId: session.user.id,
+  const [membership, user] = await Promise.all([
+    prisma.circleMembership.findUnique({
+      where: {
+        circleId_userId: {
+          circleId,
+          userId: session.user.id,
+        },
       },
-    },
-  });
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { timezone: true },
+    }),
+  ]);
 
   if (!membership || !canCreateEvent(membership.role)) {
     redirect(`/cercles/${circleId}`);
   }
+
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
   const members = await prisma.circleMembership.findMany({
     where: { circleId },
@@ -51,6 +60,7 @@ export default async function NouvelEvenementPage({
       <CreateEventForm
         circleId={circleId}
         initialStartsAt={initialStartsAt}
+        effectiveTimeZone={effectiveTimeZone}
         members={members.map((member) => ({
           id: member.userId,
           name: member.user.name,

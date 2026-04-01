@@ -77,6 +77,7 @@ model User {
   image            String?
   phone            String?
   address          String?
+  timezone         String?
   isAdult          Boolean                      @default(true)
   createdAt        DateTime                     @default(now())
   updatedAt        DateTime                     @updatedAt

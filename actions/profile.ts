@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getAppDefaultTimeZone, isValidIanaTimeZone } from "@/lib/timezone";
 
 function isValidDateInput(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -106,6 +107,7 @@ const notificationSchema = z.object({
   rsvpMissingChannel: z.nativeEnum(NotificationChannel),
   urgentItemsChannel: z.nativeEnum(NotificationChannel),
   newMessagesChannel: z.nativeEnum(NotificationChannel),
+  timezone: z.string().trim().min(1, "Fuseau horaire requis."),
 });
 
 export async function updateNotificationPreferencesAction(input: z.infer<typeof notificationSchema>) {
@@ -119,13 +121,37 @@ export async function updateNotificationPreferencesAction(input: z.infer<typeof 
     return { success: false, message: "Preferences invalides." };
   }
 
-  await prisma.userNotificationPreference.upsert({
-    where: { userId: session.user.id },
-    create: {
-      userId: session.user.id,
-      ...parsed.data,
-    },
-    update: parsed.data,
+  const timezone = parsed.data.timezone;
+  if (!isValidIanaTimeZone(timezone)) {
+    return { success: false, message: "Fuseau horaire invalide." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.userNotificationPreference.upsert({
+      where: { userId: session.user.id },
+      create: {
+        userId: session.user.id,
+        birthdaysChannel: parsed.data.birthdaysChannel,
+        upcomingEventsChannel: parsed.data.upcomingEventsChannel,
+        rsvpMissingChannel: parsed.data.rsvpMissingChannel,
+        urgentItemsChannel: parsed.data.urgentItemsChannel,
+        newMessagesChannel: parsed.data.newMessagesChannel,
+      },
+      update: {
+        birthdaysChannel: parsed.data.birthdaysChannel,
+        upcomingEventsChannel: parsed.data.upcomingEventsChannel,
+        rsvpMissingChannel: parsed.data.rsvpMissingChannel,
+        urgentItemsChannel: parsed.data.urgentItemsChannel,
+        newMessagesChannel: parsed.data.newMessagesChannel,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: session.user.id },
+      data: {
+        timezone: timezone || getAppDefaultTimeZone(),
+      },
+    });
   });
 
   revalidatePath("/parametres");

@@ -6,6 +6,7 @@ import { NotificationPreferencesForm } from "@/components/settings/notification-
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getAppDefaultTimeZone, getEffectiveTimeZone, getTimeZoneOptions } from "@/lib/timezone";
 
 export default async function ParametresPage() {
   const session = await auth();
@@ -13,9 +14,19 @@ export default async function ParametresPage() {
     redirect("/connexion");
   }
 
-  const prefs = await prisma.userNotificationPreference.findUnique({
-    where: { userId: session.user.id },
-  });
+  const [prefs, user] = await Promise.all([
+    prisma.userNotificationPreference.findUnique({
+      where: { userId: session.user.id },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { timezone: true },
+    }),
+  ]);
+
+  const appDefaultTimeZone = getAppDefaultTimeZone();
+  const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
+  const timeZoneOptions = getTimeZoneOptions();
 
   return (
     <AppShell title="Parametres">
@@ -37,7 +48,10 @@ export default async function ParametresPage() {
           rsvpMissingChannel: prefs?.rsvpMissingChannel ?? "NONE",
           urgentItemsChannel: prefs?.urgentItemsChannel ?? "NONE",
           newMessagesChannel: prefs?.newMessagesChannel ?? "APP",
+          timezone: effectiveTimeZone,
         }}
+        timeZoneOptions={timeZoneOptions}
+        appDefaultTimeZone={appDefaultTimeZone}
       />
     </AppShell>
   );
