@@ -54,6 +54,20 @@ enum FamilyRelationType {
   CONJOINT_DE
 }
 
+enum HistoryActionType {
+  CREATE
+  UPDATE
+  DELETE
+  ASSIGN
+}
+
+enum HistoryObjectType {
+  EVENT
+  CIRCLE
+  MEMBER
+  CONTRIBUTION_ITEM
+}
+
 model User {
   id               String                       @id @default(cuid())
   email            String                       @unique
@@ -82,6 +96,7 @@ model User {
   notificationPreference UserNotificationPreference?
   profile          PersonProfile?
   responsibleForProfiles PersonProfile[]        @relation("ResponsibleParent")
+  managedFamilyMembers ManagedFamilyMember[]
   createdInvites   CircleInvite[]               @relation("CircleInviteCreator")
 }
 
@@ -262,9 +277,36 @@ model EventAttendance {
   updatedAt         DateTime      @updatedAt
   event             Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedMembers     EventAttendanceLinkedMember[]
 
   @@unique([eventId, userId])
   @@index([eventId, response])
+}
+
+model ManagedFamilyMember {
+  id            String                       @id @default(cuid())
+  ownerUserId   String
+  firstName     String
+  lastName      String?
+  relationLabel String?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+  owner         User                         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  attendanceLinks EventAttendanceLinkedMember[]
+
+  @@index([ownerUserId])
+}
+
+model EventAttendanceLinkedMember {
+  id              String             @id @default(cuid())
+  attendanceId    String
+  managedMemberId String
+  createdAt       DateTime           @default(now())
+  attendance      EventAttendance    @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  managedMember   ManagedFamilyMember @relation(fields: [managedMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([attendanceId, managedMemberId])
+  @@index([managedMemberId])
 }
 
 model EventContributionItem {
@@ -310,6 +352,27 @@ model CircleMessage {
   author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([circleId, createdAt])
+}
+
+model ActionHistory {
+  id               String            @id @default(cuid())
+  actionType       HistoryActionType
+  objectType       HistoryObjectType
+  objectId         String
+  objectLabel      String?
+  actorUserId      String
+  actorDisplayName String?
+  circleId         String?
+  eventId          String?
+  details          Json?
+  previousValue    Json?
+  newValue         Json?
+  createdAt        DateTime          @default(now())
+
+  @@index([createdAt])
+  @@index([circleId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model DirectConversation {

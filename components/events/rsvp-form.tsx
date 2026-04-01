@@ -47,7 +47,14 @@ export function RSVPForm({ eventId, initial }: RSVPFormProps) {
       onSubmit={form.handleSubmit(async (values) => {
         setIsSubmitting(true);
         setFeedback("");
-        const result = await respondRsvpAction({ eventId, ...values });
+        const result = await respondRsvpAction({
+          eventId,
+          response: values.response,
+          includeSelf: values.response === "JE_NE_VIENS_PAS" ? false : values.adultsCount > 0,
+          linkedMemberIds: [],
+          guestsDisplayName: values.guestsDisplayName,
+          note: values.note,
+        });
         setIsSubmitting(false);
 
         if (!result.success) {

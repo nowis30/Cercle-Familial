@@ -4,15 +4,16 @@ import { redirect } from "next/navigation";
 import { EventCommentsPanel } from "@/components/events/event-comments-panel";
 import { EventContributionsPanel } from "@/components/events/event-contributions-panel";
 import { EventManagementActions } from "@/components/events/event-management-actions";
+import { EventParticipantsPanel } from "@/components/events/event-participants-panel";
 import { EventPhotosPanel } from "@/components/events/event-photos-panel";
-import { RSVPForm } from "@/components/events/rsvp-form";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { RSVP_LABELS } from "@/lib/constants";
+import { formatEventDateTime } from "@/lib/event-datetime";
 import { buildGoogleCalendarUrl } from "@/lib/event-calendar";
-import { canManageCircle } from "@/lib/permissions";
+import { canCreateEvent, canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ circleId: string; eventId: string }> }) {
@@ -40,7 +41,16 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
       circleId,
     },
     include: {
-      attendances: true,
+      attendances: {
+        include: {
+          user: true,
+          linkedMembers: {
+            include: {
+              managedMember: true,
+            },
+          },
+        },
+      },
       invites: true,
       contributionItems: {
         include: {
@@ -63,15 +73,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   }
 
   const myRsvp = event.attendances.find((attendance) => attendance.userId === session.user.id);
+  const managedFamilyMembers = await prisma.managedFamilyMember.findMany({
+    where: { ownerUserId: session.user.id },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+  });
   const totalResponses = event.attendances.length;
   const totalPeople = event.attendances.reduce((sum, attendance) => sum + attendance.totalCount, 0);
   const totalAdults = event.attendances.reduce((sum, attendance) => sum + attendance.adultsCount, 0);
   const totalChildren = event.attendances.reduce((sum, attendance) => sum + attendance.childrenCount, 0);
   const missingResponses = Math.max(0, event.invites.length - totalResponses);
   const myRsvpVariant = myRsvp?.response === "JE_VIENS" ? "default" : myRsvp?.response === "PEUT_ETRE" ? "warning" : "danger";
-  const startsAtLabel = new Date(event.startsAt).toLocaleString("fr-CA");
-  const endsAtLabel = event.endsAt ? new Date(event.endsAt).toLocaleString("fr-CA") : null;
+  const startsAtLabel = formatEventDateTime(event.startsAt);
+  const endsAtLabel = event.endsAt ? formatEventDateTime(event.endsAt) : null;
   const canManageEvent = canManageCircle(membership.role) || event.hostId === session.user.id;
+  const canManageContributionItems = canCreateEvent(membership.role);
   const addToGoogleCalendarUrl = buildGoogleCalendarUrl({
     id: event.id,
     title: event.title,
@@ -104,6 +119,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
           >
             Ajouter au calendrier (.ics)
           </Link>
+          <a
+            href="#participants"
+            className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+          >
+            Participants
+          </a>
         </div>
         <div className="mt-2">
           <EventManagementActions circleId={circleId} eventId={event.id} eventTitle={event.title} canManage={canManageEvent} />
@@ -119,24 +140,38 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
           <p className="rounded-xl bg-amber-50 px-2 py-1 font-semibold text-amber-800">Manquantes: {missingResponses}</p>
         </div>
       </Card>
-      <RSVPForm
+      <EventParticipantsPanel
         eventId={event.id}
-        initial={
+        myInitial={
           myRsvp
             ? {
                 response: myRsvp.response,
-                adultsCount: myRsvp.adultsCount,
-                childrenCount: myRsvp.childrenCount,
-                guestsDisplayName: myRsvp.guestsDisplayName ?? "",
+                includeSelf: myRsvp.adultsCount > 0,
+                linkedMemberIds: myRsvp.linkedMembers.map((link) => link.managedMemberId),
                 note: myRsvp.note ?? "",
               }
             : undefined
         }
+        familyMembers={managedFamilyMembers.map((member) => ({
+          id: member.id,
+          label: `${member.firstName}${member.lastName ? ` ${member.lastName}` : ""}`.trim(),
+          relationLabel: member.relationLabel,
+        }))}
+        groups={event.attendances.map((attendance) => ({
+          responderName: attendance.user.name,
+          response: attendance.response,
+          includeSelf: attendance.adultsCount > 0,
+          linkedMembers: attendance.linkedMembers.map((link) => ({
+            id: link.managedMember.id,
+            label: `${link.managedMember.firstName}${link.managedMember.lastName ? ` ${link.managedMember.lastName}` : ""}`.trim(),
+          })),
+        }))}
       />
       <Card>
         <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Qui apporte quoi</p>
         <EventContributionsPanel
           eventId={event.id}
+          canManageItems={canManageContributionItems}
           items={event.contributionItems.map((item) => ({
             id: item.id,
             name: item.name,

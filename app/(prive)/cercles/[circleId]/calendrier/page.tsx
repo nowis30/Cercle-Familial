@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   addMonths,
-  endOfMonth,
   format,
   isSameMonth,
   isToday,
@@ -15,6 +14,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
+import { formatEventTime, getUtcRangeForEventMonth, toEventDateKey } from "@/lib/event-datetime";
 import { prisma } from "@/lib/prisma";
 
 type DayItem = {
@@ -57,17 +57,18 @@ export default async function CalendrierPage({
   const now = month ? parseISO(`${month}-01`) : new Date();
   const currentMonth = Number.isNaN(now.getTime()) ? new Date() : now;
   const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
   const monthLabel = format(monthStart, "MMMM yyyy", { locale: frCA });
 
   const selectedType = type ?? "ALL";
   const eventWhereType = selectedType === "ALL" ? undefined : selectedType;
+  const monthKey = format(monthStart, "yyyy-MM");
+  const monthUtcRange = getUtcRangeForEventMonth(monthKey);
 
   const [events, birthdays, importantDates] = await Promise.all([
     prisma.event.findMany({
       where: {
         circleId,
-        startsAt: { gte: monthStart, lte: new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59) },
+        startsAt: { gte: monthUtcRange.start, lte: monthUtcRange.end },
         ...(eventWhereType ? { type: eventWhereType as never } : {}),
       },
       orderBy: { startsAt: "asc" },
@@ -98,7 +99,6 @@ export default async function CalendrierPage({
 
   const prevMonth = format(addMonths(monthStart, -1), "yyyy-MM");
   const nextMonth = format(addMonths(monthStart, 1), "yyyy-MM");
-  const monthKey = format(monthStart, "yyyy-MM");
   const holidays = getHolidayEntriesForMonth(monthStart.getFullYear(), monthStart.getMonth());
   const gridDates = getMonthGridDates(monthStart);
   const selectedDay = day;
@@ -111,16 +111,16 @@ export default async function CalendrierPage({
   };
 
   for (const event of events) {
-    const dateKey = format(new Date(event.startsAt), "yyyy-MM-dd");
+    const dateKey = toEventDateKey(event.startsAt);
     pushDayItem(dateKey, {
       id: event.id,
       kind: "event",
       label: event.title,
       href: `/cercles/${circleId}/evenements/${event.id}`,
-      timeLabel: format(new Date(event.startsAt), "HH:mm"),
+      timeLabel: formatEventTime(event.startsAt),
       timeRangeLabel: event.endsAt
-        ? `${format(new Date(event.startsAt), "HH:mm")} - ${format(new Date(event.endsAt), "HH:mm")}`
-        : `${format(new Date(event.startsAt), "HH:mm")} - fin non definie`,
+        ? `${formatEventTime(event.startsAt)} - ${formatEventTime(event.endsAt)}`
+        : `${formatEventTime(event.startsAt)} - fin non definie`,
     });
   }
 

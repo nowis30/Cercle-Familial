@@ -4,19 +4,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { CreateEventForm } from "@/components/events/create-event-form";
 import { auth } from "@/lib/auth";
+import { toEventDateTimeLocalValue } from "@/lib/event-datetime";
 import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-
-function formatDateTimeLocal(value?: Date | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const hh = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-}
 
 export default async function ModifierEvenementPage({
   params,
@@ -89,8 +79,8 @@ export default async function ModifierEvenementPage({
           circleId: event.circleId,
           title: event.title,
           type: event.type,
-          startsAt: formatDateTimeLocal(event.startsAt),
-          endsAt: formatDateTimeLocal(event.endsAt),
+          startsAt: toEventDateTimeLocalValue(event.startsAt),
+          endsAt: toEventDateTimeLocalValue(event.endsAt),
           locationName: event.locationName,
           address: event.address ?? "",
           description: event.description ?? "",

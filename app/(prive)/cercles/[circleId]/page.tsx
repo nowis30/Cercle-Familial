@@ -8,6 +8,7 @@ import { EventCard } from "@/components/events/event-card";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
+import { formatEventDateTime } from "@/lib/event-datetime";
 import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -86,8 +87,8 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
                 id: event.id,
                 title: event.title,
                 type: event.type,
-                startsAt: new Date(event.startsAt).toLocaleString("fr-CA"),
-                endsAt: event.endsAt ? new Date(event.endsAt).toLocaleString("fr-CA") : undefined,
+                startsAt: formatEventDateTime(event.startsAt),
+                endsAt: event.endsAt ? formatEventDateTime(event.endsAt) : undefined,
                 locationName: event.locationName,
               }}
             />

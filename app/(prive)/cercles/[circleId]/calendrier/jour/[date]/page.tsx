@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { endOfDay, format, parseISO, startOfDay } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { frCA } from "date-fns/locale";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth } from "@/lib/calendar";
+import { formatEventTime, getUtcRangeForEventDay } from "@/lib/event-datetime";
 import { prisma } from "@/lib/prisma";
 
 function isSameMonthDay(dateA: Date, dateB: Date) {
@@ -46,16 +47,15 @@ export default async function JourCalendrierPage({
     redirect(`/cercles/${circleId}/calendrier`);
   }
 
-  const dayStart = startOfDay(selectedDate);
-  const dayEnd = endOfDay(selectedDate);
+  const dayUtcRange = getUtcRangeForEventDay(date);
 
   const [events, birthdays, importantDates] = await Promise.all([
     prisma.event.findMany({
       where: {
         circleId,
         startsAt: {
-          gte: dayStart,
-          lte: dayEnd,
+          gte: dayUtcRange.start,
+          lte: dayUtcRange.end,
         },
       },
       orderBy: { startsAt: "asc" },
@@ -154,8 +154,8 @@ export default async function JourCalendrierPage({
               >
                 <p className="text-sm font-semibold text-zinc-900">{event.title}</p>
                 <p className="text-xs text-zinc-600">
-                  {format(new Date(event.startsAt), "HH:mm", { locale: frCA })}
-                  {event.endsAt ? ` - ${format(new Date(event.endsAt), "HH:mm", { locale: frCA })}` : " - fin non definie"}
+                  {formatEventTime(event.startsAt)}
+                  {event.endsAt ? ` - ${formatEventTime(event.endsAt)}` : " - fin non definie"}
                   {event.locationName ? ` - ${event.locationName}` : ""}
                 </p>
               </Link>

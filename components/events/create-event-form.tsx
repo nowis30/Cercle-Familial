@@ -11,6 +11,7 @@ import { createEventAction, updateEventAction } from "@/actions/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { parseEventDateTimeLocal, tryParseEventDateTimeLocal } from "@/lib/event-datetime";
 
 const schema = z.object({
   circleId: z.string().min(1, "Cercle requis"),
@@ -25,10 +26,10 @@ const schema = z.object({
 }).superRefine((values, ctx) => {
   if (!values.endsAt) return;
 
-  const startsAt = new Date(values.startsAt);
-  const endsAt = new Date(values.endsAt);
+  const startsAt = tryParseEventDateTimeLocal(values.startsAt);
+  const endsAt = tryParseEventDateTimeLocal(values.endsAt);
 
-  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return;
+  if (!startsAt || !endsAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return;
 
   if (endsAt < startsAt) {
     ctx.addIssue({
@@ -111,8 +112,8 @@ export function CreateEventForm({
                 title: values.title,
                 type: values.type,
                 description: values.description,
-                startsAt: new Date(values.startsAt),
-                endsAt: values.endsAt ? new Date(values.endsAt) : undefined,
+                startsAt: parseEventDateTimeLocal(values.startsAt),
+                endsAt: values.endsAt ? parseEventDateTimeLocal(values.endsAt) : undefined,
                 locationName: values.locationName,
                 address: values.address,
                 invitedUserIds: values.invitedUserIds,
@@ -122,8 +123,8 @@ export function CreateEventForm({
                 title: values.title,
                 type: values.type,
                 description: values.description,
-                startsAt: new Date(values.startsAt),
-                endsAt: values.endsAt ? new Date(values.endsAt) : undefined,
+                startsAt: parseEventDateTimeLocal(values.startsAt),
+                endsAt: values.endsAt ? parseEventDateTimeLocal(values.endsAt) : undefined,
                 locationName: values.locationName,
                 address: values.address,
                 invitedUserIds: values.invitedUserIds,

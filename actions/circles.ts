@@ -1,6 +1,6 @@
 "use server";
 
-import { CircleRole, InvitePermission } from "@prisma/client";
+import { CircleRole, HistoryActionType, HistoryObjectType, InvitePermission } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -42,21 +42,42 @@ export async function createCircleAction(input: z.infer<typeof createCircleSchem
     slug = `${baseSlug}-${suffix++}`;
   }
 
-  const circle = await prisma.circle.create({
-    data: {
-      name: data.name,
-      slug,
-      photoUrl: data.photoUrl || null,
-      description: data.description || null,
-      rules: data.rules || null,
-      invitePermission: data.invitePermission,
-      memberships: {
-        create: {
-          userId: session.user.id,
-          role: CircleRole.ADMIN,
+  const circle = await prisma.$transaction(async (tx) => {
+    const createdCircle = await tx.circle.create({
+      data: {
+        name: data.name,
+        slug,
+        photoUrl: data.photoUrl || null,
+        description: data.description || null,
+        rules: data.rules || null,
+        invitePermission: data.invitePermission,
+        memberships: {
+          create: {
+            userId: session.user.id,
+            role: CircleRole.ADMIN,
+          },
         },
       },
-    },
+    });
+
+    await tx.actionHistory.create({
+      data: {
+        actionType: HistoryActionType.CREATE,
+        objectType: HistoryObjectType.CIRCLE,
+        objectId: createdCircle.id,
+        objectLabel: createdCircle.name,
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        circleId: createdCircle.id,
+        newValue: {
+          name: createdCircle.name,
+          slug: createdCircle.slug,
+          invitePermission: createdCircle.invitePermission,
+        },
+      },
+    });
+
+    return createdCircle;
   });
 
   revalidatePath("/cercles");
@@ -117,16 +138,48 @@ export async function updateCircleAction(input: z.infer<typeof updateCircleSchem
     slug = `${normalizedName}-${suffix++}`;
   }
 
-  const circle = await prisma.circle.update({
-    where: { id: data.circleId },
-    data: {
-      name: data.name,
-      slug,
-      photoUrl: data.photoUrl || null,
-      description: data.description || null,
-      rules: data.rules || null,
-      invitePermission: data.invitePermission,
-    },
+  const circle = await prisma.$transaction(async (tx) => {
+    const updatedCircle = await tx.circle.update({
+      where: { id: data.circleId },
+      data: {
+        name: data.name,
+        slug,
+        photoUrl: data.photoUrl || null,
+        description: data.description || null,
+        rules: data.rules || null,
+        invitePermission: data.invitePermission,
+      },
+    });
+
+    await tx.actionHistory.create({
+      data: {
+        actionType: HistoryActionType.UPDATE,
+        objectType: HistoryObjectType.CIRCLE,
+        objectId: updatedCircle.id,
+        objectLabel: updatedCircle.name,
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        circleId: updatedCircle.id,
+        previousValue: {
+          name: existingCircle.name,
+          slug: existingCircle.slug,
+          photoUrl: existingCircle.photoUrl,
+          description: existingCircle.description,
+          rules: existingCircle.rules,
+          invitePermission: existingCircle.invitePermission,
+        },
+        newValue: {
+          name: updatedCircle.name,
+          slug: updatedCircle.slug,
+          photoUrl: updatedCircle.photoUrl,
+          description: updatedCircle.description,
+          rules: updatedCircle.rules,
+          invitePermission: updatedCircle.invitePermission,
+        },
+      },
+    });
+
+    return updatedCircle;
   });
 
   revalidatePath("/cercles");
@@ -162,12 +215,30 @@ export async function deleteCircleAction(input: z.infer<typeof deleteCircleSchem
     return { success: false, message: "Action reservee aux admins du cercle." };
   }
 
-  const circle = await prisma.circle.findUnique({ where: { id: parsed.data.circleId }, select: { id: true } });
+  const circle = await prisma.circle.findUnique({ where: { id: parsed.data.circleId }, select: { id: true, name: true, slug: true } });
   if (!circle) {
     return { success: false, message: "Cercle introuvable." };
   }
 
-  await prisma.circle.delete({ where: { id: circle.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.circle.delete({ where: { id: circle.id } });
+
+    await tx.actionHistory.create({
+      data: {
+        actionType: HistoryActionType.DELETE,
+        objectType: HistoryObjectType.CIRCLE,
+        objectId: circle.id,
+        objectLabel: circle.name,
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        circleId: circle.id,
+        previousValue: {
+          name: circle.name,
+          slug: circle.slug,
+        },
+      },
+    });
+  });
 
   revalidatePath("/cercles");
   revalidatePath("/tableau-de-bord");
@@ -208,6 +279,11 @@ export async function removeMemberAction(input: z.infer<typeof removeMemberSchem
   // Vérifier que la cible est membre du cercle
   const targetMembership = await prisma.circleMembership.findUnique({
     where: { circleId_userId: { circleId, userId: targetUserId } },
+    include: {
+      user: {
+        select: { id: true, name: true },
+      },
+    },
   });
   if (!targetMembership) {
     return { success: false, message: "Cette personne n'est pas membre du cercle." };
@@ -223,8 +299,25 @@ export async function removeMemberAction(input: z.infer<typeof removeMemberSchem
     }
   }
 
-  await prisma.circleMembership.delete({
-    where: { circleId_userId: { circleId, userId: targetUserId } },
+  await prisma.$transaction(async (tx) => {
+    await tx.circleMembership.delete({
+      where: { circleId_userId: { circleId, userId: targetUserId } },
+    });
+
+    await tx.actionHistory.create({
+      data: {
+        actionType: HistoryActionType.DELETE,
+        objectType: HistoryObjectType.MEMBER,
+        objectId: targetMembership.user.id,
+        objectLabel: targetMembership.user.name,
+        actorUserId: session.user.id,
+        actorDisplayName: session.user.name ?? null,
+        circleId,
+        details: {
+          removedRole: targetMembership.role,
+        },
+      },
+    });
   });
 
   revalidatePath(`/cercles/${circleId}/membres`);

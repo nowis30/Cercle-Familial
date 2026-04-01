@@ -2,7 +2,7 @@
 
 import crypto from "node:crypto";
 
-import { CircleRole } from "@prisma/client";
+import { CircleRole, HistoryActionType, HistoryObjectType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -102,17 +102,35 @@ export async function joinCircleWithTokenAction(input: z.infer<typeof joinSchema
   });
 
   if (!existingMembership) {
-    await prisma.circleMembership.create({
-      data: {
-        circleId: invite.circleId,
-        userId: session.user.id,
-        role: invite.defaultRole,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.circleMembership.create({
+        data: {
+          circleId: invite.circleId,
+          userId: session.user.id,
+          role: invite.defaultRole,
+        },
+      });
 
-    await prisma.circleInvite.update({
-      where: { id: invite.id },
-      data: { usedCount: { increment: 1 } },
+      await tx.circleInvite.update({
+        where: { id: invite.id },
+        data: { usedCount: { increment: 1 } },
+      });
+
+      await tx.actionHistory.create({
+        data: {
+          actionType: HistoryActionType.CREATE,
+          objectType: HistoryObjectType.MEMBER,
+          objectId: session.user.id,
+          objectLabel: session.user.name ?? null,
+          actorUserId: session.user.id,
+          actorDisplayName: session.user.name ?? null,
+          circleId: invite.circleId,
+          details: {
+            source: "INVITE",
+            role: invite.defaultRole,
+          },
+        },
+      });
     });
   } else {
     return { success: true, circleId: invite.circleId, alreadyMember: true, code: "ALREADY_MEMBER" };

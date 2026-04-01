@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { addMonths, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth } from "date-fns";
+import { addMonths, format, isSameMonth, isToday, parseISO, startOfMonth } from "date-fns";
 import { frCA } from "date-fns/locale";
 
 import { BirthdayList } from "@/components/dashboard/birthday-list";
@@ -10,6 +10,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CircleSwitcher } from "@/components/layout/circle-switcher";
 import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
+import { formatEventDateTime, formatEventTime, getUtcRangeForEventMonth, toEventDateKey } from "@/lib/event-datetime";
 import { prisma } from "@/lib/prisma";
 
 type HomeCalendarItem = {
@@ -56,14 +57,13 @@ export default async function TableauDeBordPage({
   const parsedMonth = month ? parseISO(`${month}-01`) : new Date();
   const currentMonth = Number.isNaN(parsedMonth.getTime()) ? new Date() : parsedMonth;
   const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
   const monthLabel = format(monthStart, "MMMM yyyy", { locale: frCA });
   const prevMonth = format(addMonths(monthStart, -1), "yyyy-MM");
   const nextMonth = format(addMonths(monthStart, 1), "yyyy-MM");
+  const monthKey = format(monthStart, "yyyy-MM");
+  const monthUtcRange = getUtcRangeForEventMonth(monthKey);
   const monthGridDates = getMonthGridDates(monthStart);
   const holidays = getHolidayEntriesForMonth(monthStart.getFullYear(), monthStart.getMonth());
-
-  const monthEndInclusive = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59);
 
   const [upcomingEvents, monthEvents, birthdays, messages, urgentItems] = await Promise.all([
     prisma.event.findMany({
@@ -81,7 +81,7 @@ export default async function TableauDeBordPage({
     prisma.event.findMany({
       where: {
         circleId: { in: circleIds },
-        startsAt: { gte: monthStart, lte: monthEndInclusive },
+        startsAt: { gte: monthUtcRange.start, lte: monthUtcRange.end },
       },
       orderBy: { startsAt: "asc" },
     }),
@@ -124,12 +124,12 @@ export default async function TableauDeBordPage({
 
   for (const event of monthEvents) {
     const eventDate = new Date(event.startsAt);
-    const dateKey = format(eventDate, "yyyy-MM-dd");
+    const dateKey = toEventDateKey(eventDate);
     pushDayItem(dateKey, {
       id: `event-${event.id}`,
       label: event.title,
       kind: "event",
-      timeLabel: format(eventDate, "HH:mm"),
+      timeLabel: formatEventTime(eventDate),
     });
   }
 
@@ -279,8 +279,8 @@ export default async function TableauDeBordPage({
               id: event.id,
               title: event.title,
               type: event.type,
-              startsAt: new Date(event.startsAt).toLocaleString("fr-CA"),
-              endsAt: event.endsAt ? new Date(event.endsAt).toLocaleString("fr-CA") : undefined,
+              startsAt: formatEventDateTime(event.startsAt),
+              endsAt: event.endsAt ? formatEventDateTime(event.endsAt) : undefined,
               locationName: event.locationName,
               missingResponses: Math.max(0, event.invites.length - event.attendances.length),
             }}
