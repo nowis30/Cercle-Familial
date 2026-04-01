@@ -297,23 +297,6 @@ export default async function TableauDeBordPage({
         ))}
       </DashboardSection>
 
-      <DashboardSection title="Choses a faire" description="Priorites rapides pour garder le cercle a jour.">
-        <ul className="space-y-2 text-sm">
-          <li className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">RSVP manquants:</span> {rsvpMissingTasks.length} evenement(s) a relancer
-          </li>
-          <li className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Items urgents:</span> {urgentTaskCount}
-          </li>
-          <li className="rounded-2xl border border-rose-100 bg-rose-50/40 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Items manquants:</span> {missingItemCount}
-          </li>
-          <li className="rounded-2xl border border-pink-100 bg-pink-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Anniversaires a souhaiter (7 jours):</span> {birthdaysSoonCount}
-          </li>
-        </ul>
-      </DashboardSection>
-
       <DashboardSection title="Anniversaires a venir">
         {upcomingBirthdays.length === 0 ? <p className="rounded-2xl border border-pink-100 bg-pink-50/60 px-3 py-3 text-sm text-zinc-600">Aucun anniversaire a venir ce mois-ci.</p> : null}
         <BirthdayList
@@ -359,6 +342,23 @@ export default async function TableauDeBordPage({
               <span className="ml-2 rounded-full bg-white px-2 py-1 text-xs font-semibold text-rose-700">{item.status}</span>
             </li>
           ))}
+        </ul>
+      </DashboardSection>
+
+      <DashboardSection title="Choses a faire" description="Priorites rapides pour garder le cercle a jour.">
+        <ul className="space-y-2 text-sm">
+          <li className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
+            <span className="font-semibold text-zinc-900">RSVP manquants:</span> {rsvpMissingTasks.length} evenement(s) a relancer
+          </li>
+          <li className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
+            <span className="font-semibold text-zinc-900">Items urgents:</span> {urgentTaskCount}
+          </li>
+          <li className="rounded-2xl border border-rose-100 bg-rose-50/40 px-3 py-3">
+            <span className="font-semibold text-zinc-900">Items manquants:</span> {missingItemCount}
+          </li>
+          <li className="rounded-2xl border border-pink-100 bg-pink-50/70 px-3 py-3">
+            <span className="font-semibold text-zinc-900">Anniversaires a souhaiter (7 jours):</span> {birthdaysSoonCount}
+          </li>
         </ul>
       </DashboardSection>
 
