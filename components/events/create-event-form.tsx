@@ -21,16 +21,40 @@ const schema = z.object({
   address: z.string().optional(),
   description: z.string().optional(),
   invitedUserIds: z.array(z.string()),
+}).superRefine((values, ctx) => {
+  if (!values.endsAt) return;
+
+  const startsAt = new Date(values.startsAt);
+  const endsAt = new Date(values.endsAt);
+
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return;
+
+  if (endsAt < startsAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endsAt"],
+      message: "L'heure de fin ne peut pas etre avant l'heure de debut.",
+    });
+  }
 });
 
 type FormValues = z.infer<typeof schema>;
 
 type MemberOption = { id: string; name: string };
 
-export function CreateEventForm({ circleId, members }: { circleId: string; members: MemberOption[] }) {
+export function CreateEventForm({
+  circleId,
+  members,
+  initialStartsAt,
+}: {
+  circleId: string;
+  members: MemberOption[];
+  initialStartsAt?: string;
+}) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string>("");
   const [isSuccessFeedback, setIsSuccessFeedback] = useState(false);
+  const [isErrorFeedback, setIsErrorFeedback] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
@@ -38,7 +62,7 @@ export function CreateEventForm({ circleId, members }: { circleId: string; membe
     defaultValues: {
       title: "",
       type: EventType.SOUPER_FAMILIAL,
-      startsAt: "",
+      startsAt: initialStartsAt ?? "",
       endsAt: "",
       locationName: "",
       address: "",
@@ -54,6 +78,7 @@ export function CreateEventForm({ circleId, members }: { circleId: string; membe
         setIsSubmitting(true);
         setFeedback("");
         setIsSuccessFeedback(false);
+        setIsErrorFeedback(false);
 
         const result = await createEventAction({
           circleId,
@@ -69,17 +94,20 @@ export function CreateEventForm({ circleId, members }: { circleId: string; membe
 
         setIsSubmitting(false);
         if (!result.success) {
+          setIsErrorFeedback(true);
           setFeedback(result.message ?? "Impossible de creer l'evenement.");
           return;
         }
 
         setIsSuccessFeedback(true);
+        setIsErrorFeedback(false);
         setFeedback("Evenement cree avec succes.");
 
         router.push(`/cercles/${circleId}/evenements/${result.eventId}`);
       })}
     >
       <Input placeholder="Titre" {...form.register("title")} />
+      {form.formState.errors.title ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.title.message}</p> : null}
       <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...form.register("type")}>
         <option value={EventType.NOEL}>Noel</option>
         <option value={EventType.PAQUES}>Paques</option>
@@ -90,9 +118,16 @@ export function CreateEventForm({ circleId, members }: { circleId: string; membe
         <option value={EventType.REUNION_FAMILIALE}>Reunion familiale</option>
         <option value={EventType.AUTRE}>Autre</option>
       </select>
+      {form.formState.errors.type ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.type.message}</p> : null}
+      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Date et heure de debut</label>
       <Input type="datetime-local" {...form.register("startsAt")} />
+      {form.formState.errors.startsAt ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.startsAt.message}</p> : null}
+      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Date et heure de fin (optionnel)</label>
       <Input type="datetime-local" {...form.register("endsAt")} />
+      <p className="text-xs text-zinc-500">Si vide, l&apos;evenement sera enregistre sans heure de fin.</p>
+      {form.formState.errors.endsAt ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.endsAt.message}</p> : null}
       <Input placeholder="Lieu" {...form.register("locationName")} />
+      {form.formState.errors.locationName ? <p className="text-xs font-semibold text-rose-700">{form.formState.errors.locationName.message}</p> : null}
       <Input placeholder="Adresse" {...form.register("address")} />
       <Textarea placeholder="Description" {...form.register("description")} />
 
@@ -107,7 +142,7 @@ export function CreateEventForm({ circleId, members }: { circleId: string; membe
       </div>
 
       {feedback ? (
-        <p className={`rounded-xl px-3 py-2 text-xs font-semibold ${isSuccessFeedback ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+        <p className={`rounded-xl px-3 py-2 text-xs font-semibold ${isSuccessFeedback ? "bg-emerald-50 text-emerald-700" : isErrorFeedback ? "bg-rose-50 text-rose-700" : "bg-zinc-100 text-zinc-700"}`}>
           {feedback}
         </p>
       ) : null}

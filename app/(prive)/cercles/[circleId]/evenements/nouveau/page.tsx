@@ -7,8 +7,15 @@ import { auth } from "@/lib/auth";
 import { canCreateEvent } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-export default async function NouvelEvenementPage({ params }: { params: Promise<{ circleId: string }> }) {
+export default async function NouvelEvenementPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ circleId: string }>;
+  searchParams: Promise<{ date?: string }>;
+}) {
   const { circleId } = await params;
+  const { date } = await searchParams;
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/connexion");
@@ -33,6 +40,8 @@ export default async function NouvelEvenementPage({ params }: { params: Promise<
     orderBy: { createdAt: "asc" },
   });
 
+  const initialStartsAt = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T18:00` : undefined;
+
   return (
     <AppShell title="Nouvel evenement">
       <Card className="bg-gradient-to-br from-white to-amber-50/60">
@@ -41,6 +50,7 @@ export default async function NouvelEvenementPage({ params }: { params: Promise<
       </Card>
       <CreateEventForm
         circleId={circleId}
+        initialStartsAt={initialStartsAt}
         members={members.map((member) => ({
           id: member.userId,
           name: member.user.name,

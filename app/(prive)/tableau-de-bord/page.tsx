@@ -280,6 +280,7 @@ export default async function TableauDeBordPage({
               title: event.title,
               type: event.type,
               startsAt: new Date(event.startsAt).toLocaleString("fr-CA"),
+              endsAt: event.endsAt ? new Date(event.endsAt).toLocaleString("fr-CA") : undefined,
               locationName: event.locationName,
               missingResponses: Math.max(0, event.invites.length - event.attendances.length),
             }}

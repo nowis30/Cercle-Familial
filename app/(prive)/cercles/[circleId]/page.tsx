@@ -78,6 +78,7 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
                 title: event.title,
                 type: event.type,
                 startsAt: new Date(event.startsAt).toLocaleString("fr-CA"),
+                endsAt: event.endsAt ? new Date(event.endsAt).toLocaleString("fr-CA") : undefined,
                 locationName: event.locationName,
               }}
             />

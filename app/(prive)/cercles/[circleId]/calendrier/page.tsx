@@ -23,6 +23,7 @@ type DayItem = {
   label: string;
   href?: string;
   timeLabel?: string;
+  timeRangeLabel?: string;
 };
 
 export default async function CalendrierPage({
@@ -117,6 +118,9 @@ export default async function CalendrierPage({
       label: event.title,
       href: `/cercles/${circleId}/evenements/${event.id}`,
       timeLabel: format(new Date(event.startsAt), "HH:mm"),
+      timeRangeLabel: event.endsAt
+        ? `${format(new Date(event.startsAt), "HH:mm")} - ${format(new Date(event.endsAt), "HH:mm")}`
+        : `${format(new Date(event.startsAt), "HH:mm")} - fin non definie`,
     });
   }
 
@@ -163,6 +167,7 @@ export default async function CalendrierPage({
 
   const selectedDateKey = selectedDay && /^\d{4}-\d{2}-\d{2}$/.test(selectedDay) ? selectedDay : format(monthStart, "yyyy-MM-dd");
   const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
+  const selectedDateLabel = format(parseISO(selectedDateKey), "EEEE d MMMM yyyy", { locale: frCA });
 
   const dayNameLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -210,7 +215,7 @@ export default async function CalendrierPage({
             const visibleItems = dayItems.slice(0, 2);
             const hiddenCount = Math.max(0, dayItems.length - visibleItems.length);
             const isCurrentMonth = isSameMonth(dayDate, monthStart);
-            const dayLink = `/cercles/${circleId}/calendrier?month=${monthKey}&type=${selectedType}&day=${dateKey}`;
+            const dayLink = `/cercles/${circleId}/calendrier/jour/${dateKey}`;
 
             return (
               <div key={dateKey} className={`min-h-20 rounded-xl border p-1.5 transition-colors ${isCurrentMonth ? "border-indigo-100 bg-white" : "border-zinc-100 bg-zinc-50"} ${selectedDateKey === dateKey ? "ring-2 ring-indigo-200" : ""}`}>
@@ -263,13 +268,27 @@ export default async function CalendrierPage({
       </Card>
 
       <Card className="bg-gradient-to-br from-white to-amber-50/40">
-        <p className="mb-2 text-sm font-semibold text-zinc-700">Jour selectionne: {selectedDateKey}</p>
-        {selectedItems.length === 0 ? <p className="text-sm text-zinc-600">Aucun element ce jour-la.</p> : null}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Jour selectionne</p>
+            <p className="text-sm font-semibold capitalize text-zinc-800">{selectedDateLabel}</p>
+            <Link href={`/cercles/${circleId}/calendrier/jour/${selectedDateKey}`} className="mt-1 inline-block text-xs font-semibold text-indigo-700 underline underline-offset-2">
+              Voir la journee
+            </Link>
+          </div>
+          <Link
+            href={`/cercles/${circleId}/evenements/nouveau?date=${selectedDateKey}`}
+            className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-indigo-200 transition-colors hover:bg-indigo-500"
+          >
+            Ajouter un evenement
+          </Link>
+        </div>
+        {selectedItems.length === 0 ? <p className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-600">Aucun element ce jour-la.</p> : null}
         <div className="space-y-2">
           {selectedItems.map((item) => (
             <div key={item.id} className="rounded-2xl border border-zinc-200/80 bg-white px-3 py-3">
               <p className="text-sm font-semibold text-zinc-900">{item.label}</p>
-              {item.timeLabel ? <p className="text-xs text-zinc-600">Heure: {item.timeLabel}</p> : null}
+              {item.timeRangeLabel ? <p className="text-xs text-zinc-600">Horaire: {item.timeRangeLabel}</p> : null}
               {item.href ? (
                 <Link href={item.href} className="mt-1 inline-block text-xs font-semibold text-indigo-700 underline">
                   Ouvrir le detail

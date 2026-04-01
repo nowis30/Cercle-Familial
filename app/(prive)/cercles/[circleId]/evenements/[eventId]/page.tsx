@@ -63,11 +63,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   const totalChildren = event.attendances.reduce((sum, attendance) => sum + attendance.childrenCount, 0);
   const missingResponses = Math.max(0, event.invites.length - totalResponses);
   const myRsvpVariant = myRsvp?.response === "JE_VIENS" ? "default" : myRsvp?.response === "PEUT_ETRE" ? "warning" : "danger";
+  const startsAtLabel = new Date(event.startsAt).toLocaleString("fr-CA");
+  const endsAtLabel = event.endsAt ? new Date(event.endsAt).toLocaleString("fr-CA") : null;
 
   return (
     <AppShell title={event.title}>
       <Card className="bg-gradient-to-br from-white to-indigo-50/50">
-        <p className="text-sm font-semibold text-indigo-700">{new Date(event.startsAt).toLocaleString("fr-CA")}</p>
+        <p className="text-sm font-semibold text-indigo-700">Debut: {startsAtLabel}</p>
+        <p className="mt-1 text-sm text-indigo-700">Fin: {endsAtLabel ?? "Non definie"}</p>
         <p className="mt-1 text-sm text-zinc-700">Lieu: {event.locationName}</p>
         <div className="mt-2">
           {myRsvp ? <Badge variant={myRsvpVariant}>Mon RSVP: {RSVP_LABELS[myRsvp.response] ?? myRsvp.response}</Badge> : <Badge variant="secondary">Mon RSVP: Non repondu</Badge>}

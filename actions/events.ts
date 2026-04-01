@@ -21,17 +21,32 @@ const createEventSchema = z.object({
   locationName: z.string().min(2),
   address: z.string().optional(),
   invitedUserIds: z.array(z.string()).default([]),
+}).superRefine((values, ctx) => {
+  if (!values.endsAt) return;
+
+  if (values.endsAt < values.startsAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endsAt"],
+      message: "L'heure de fin ne peut pas etre avant l'heure de debut.",
+    });
+  }
 });
 
 export async function createEventAction(input: z.infer<typeof createEventSchema>) {
   const session = await auth();
   if (!session?.user?.id) {
-    return { success: false, message: "Session invalide." };
+    return { success: false, message: "Session invalide.", code: "INVALID_SESSION" };
   }
 
   const parsed = createEventSchema.safeParse(input);
   if (!parsed.success) {
-    return { success: false, message: "Formulaire invalide.", issues: parsed.error.issues };
+    return {
+      success: false,
+      message: parsed.error.issues[0]?.message ?? "Formulaire invalide.",
+      issues: parsed.error.issues,
+      code: "INVALID_FORM",
+    };
   }
   const data = parsed.data;
 
@@ -45,31 +60,57 @@ export async function createEventAction(input: z.infer<typeof createEventSchema>
   });
 
   if (!membership || !canCreateEvent(membership.role)) {
-    return { success: false, message: "Seuls les adultes et admins peuvent creer un evenement." };
+    return {
+      success: false,
+      message: "Seuls les adultes et admins peuvent creer un evenement.",
+      code: "PERMISSION_DENIED",
+    };
   }
 
-  const event = await prisma.event.create({
-    data: {
-      circleId: data.circleId,
-      hostId: session.user.id,
-      title: data.title,
-      type: data.type,
-      description: data.description,
-      startsAt: data.startsAt,
-      endsAt: data.endsAt,
-      locationName: data.locationName,
-      address: data.address,
-      invites: {
-        createMany: {
-          data: data.invitedUserIds.map((userId) => ({ userId })),
-        },
-      },
-    },
-  });
+  const invitedUserIds = Array.from(new Set(data.invitedUserIds.filter(Boolean)));
 
-  revalidatePath(`/cercles/${data.circleId}`);
-  revalidatePath(`/cercles/${data.circleId}/calendrier`);
-  return { success: true, eventId: event.id };
+  try {
+    const event = await prisma.event.create({
+      data: {
+        circleId: data.circleId,
+        hostId: session.user.id,
+        title: data.title,
+        type: data.type,
+        description: data.description,
+        startsAt: data.startsAt,
+        endsAt: data.endsAt,
+        locationName: data.locationName,
+        address: data.address,
+        ...(invitedUserIds.length > 0
+          ? {
+              invites: {
+                createMany: {
+                  data: invitedUserIds.map((userId) => ({ userId })),
+                },
+              },
+            }
+          : {}),
+      },
+    });
+
+    revalidatePath(`/cercles/${data.circleId}`);
+    revalidatePath(`/cercles/${data.circleId}/calendrier`);
+    return { success: true, eventId: event.id, code: "OK" };
+  } catch (error) {
+    console.error("[createEventAction] Echec creation evenement", {
+      circleId: data.circleId,
+      userId: session.user.id,
+      type: data.type,
+      startsAt: data.startsAt,
+      message: error instanceof Error ? error.message : "Erreur inconnue",
+    });
+
+    return {
+      success: false,
+      message: "Impossible d'enregistrer l'evenement en base de donnees.",
+      code: "DATABASE_CREATE_FAILED",
+    };
+  }
 }
 
 const rsvpSchema = z.object({
