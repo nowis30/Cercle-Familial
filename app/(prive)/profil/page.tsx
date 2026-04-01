@@ -15,8 +15,14 @@ function formatDateForInput(value?: Date | null) {
   return `${year}-${month}-${day}`;
 }
 
-export default async function ProfilPage() {
+export default async function ProfilPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ birthDate?: string }>;
+}) {
   const session = await auth();
+  const { birthDate } = await searchParams;
+
   if (!session?.user?.id) {
     redirect("/connexion");
   }
@@ -30,13 +36,16 @@ export default async function ProfilPage() {
     redirect("/connexion");
   }
 
+  const hasValidBirthDatePrefill = Boolean(birthDate && /^\d{4}-\d{2}-\d{2}$/.test(birthDate));
+  const prefilledBirthDate = hasValidBirthDatePrefill ? birthDate ?? "" : "";
+
   return (
     <AppShell title="Mon profil">
       <ProfileForm
         initialValues={{
           firstName: user.profile?.firstName ?? user.name.split(" ")[0] ?? "",
           lastName: user.profile?.lastName ?? user.name.split(" ").slice(1).join(" ") ?? "",
-          birthDate: formatDateForInput(user.profile?.birthDate),
+          birthDate: prefilledBirthDate || formatDateForInput(user.profile?.birthDate),
           phone: user.phone ?? "",
           address: user.address ?? "",
           allergies: user.profile?.allergies ?? "",

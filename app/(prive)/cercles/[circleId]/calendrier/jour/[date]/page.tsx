@@ -121,12 +121,20 @@ export default async function JourCalendrierPage({
               Retour au calendrier
             </Link>
           </div>
-          <Link
-            href={`/cercles/${circleId}/evenements/nouveau?date=${format(selectedDate, "yyyy-MM-dd")}`}
-            className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-indigo-200 transition-colors hover:bg-indigo-500"
-          >
-            Ajouter un evenement
-          </Link>
+          <div className="flex flex-col items-end gap-2">
+            <Link
+              href={`/cercles/${circleId}/evenements/nouveau?date=${format(selectedDate, "yyyy-MM-dd")}`}
+              className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-indigo-200 transition-colors hover:bg-indigo-500"
+            >
+              Ajouter un evenement
+            </Link>
+            <Link
+              href={`/profil?birthDate=${format(selectedDate, "yyyy-MM-dd")}`}
+              className="rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 text-xs font-semibold text-pink-700 transition-colors hover:bg-pink-100"
+            >
+              Ajouter un anniversaire
+            </Link>
+          </div>
         </div>
       </Card>
 
