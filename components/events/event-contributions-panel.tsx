@@ -31,8 +31,8 @@ export function EventContributionsPanel({ eventId, items }: { eventId: string; i
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-2 rounded-2xl border border-zinc-200 bg-white p-3">
-        <p className="text-sm font-semibold">Ajouter un item</p>
+      <div className="grid grid-cols-1 gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3">
+        <p className="text-sm font-semibold text-zinc-800">Ajouter un item</p>
         <Input placeholder="Nom" value={name} onChange={(event) => setName(event.target.value)} />
         <Input type="number" min={1} value={quantity} onChange={(event) => setQuantity(Number(event.target.value) || 1)} />
         <Input placeholder="Note" value={note} onChange={(event) => setNote(event.target.value)} />
@@ -52,7 +52,7 @@ export function EventContributionsPanel({ eventId, items }: { eventId: string; i
         >
           Ajouter
         </Button>
-        {feedback ? <p className="text-xs text-zinc-600">{feedback}</p> : null}
+        {feedback ? <p className="text-xs font-medium text-indigo-700">{feedback}</p> : null}
       </div>
 
       <ContributionList
@@ -67,8 +67,8 @@ export function EventContributionsPanel({ eventId, items }: { eventId: string; i
 
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.id} className="flex flex-wrap gap-2 rounded-xl bg-white p-3 text-xs">
-            <span className="mr-2 font-medium">{item.name}</span>
+          <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white p-3 text-xs">
+            <span className="mr-2 font-semibold text-zinc-800">{item.name}</span>
             <Button
               size="sm"
               variant="secondary"
@@ -80,7 +80,7 @@ export function EventContributionsPanel({ eventId, items }: { eventId: string; i
               Je reserve
             </Button>
             <select
-              className="h-8 rounded-lg border border-zinc-300 px-2"
+              className="h-8 rounded-lg border border-indigo-100 bg-white px-2 text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
               value={item.status}
               onChange={async (event) => {
                 await updateContributionStatusAction({

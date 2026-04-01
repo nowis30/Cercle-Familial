@@ -1,11 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fffef9;
-  --foreground: #1f2937;
+  --background: #f6f8ff;
+  --foreground: #1f2533;
   --surface: #ffffff;
-  --muted: #f3f4f6;
-  --line: #e5e7eb;
+  --muted: #eef1fb;
+  --line: #dbe2f0;
+  --primary: #4f46e5;
+  --primary-soft: #e0e7ff;
+  --accent-warm: #fff2de;
+  --success-soft: #dcfce7;
+  --warning-soft: #fef3c7;
+  --danger-soft: #fee2e2;
+  --birthday-soft: #fce7f3;
 }
 
 @theme inline {
@@ -14,12 +21,24 @@
   --color-surface: var(--surface);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent-warm: var(--accent-warm);
+  --color-success-soft: var(--success-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger-soft: var(--danger-soft);
+  --color-birthday-soft: var(--birthday-soft);
   --font-sans: var(--font-nunito);
   --font-serif: var(--font-merriweather);
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(circle at 10% -5%, #eaf0ff 0%, transparent 45%), radial-gradient(circle at 90% 5%, #fff3e5 0%, transparent 38%), var(--background);
   color: var(--foreground);
   font-family: var(--font-nunito), sans-serif;
+}
+
+::selection {
+  background: #c7d2fe;
+  color: #1f2533;
 }

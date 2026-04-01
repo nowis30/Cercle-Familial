@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { CreateEventForm } from "@/components/events/create-event-form";
 import { AppShell } from "@/components/layout/app-shell";
+import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { canCreateEvent } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -34,6 +35,10 @@ export default async function NouvelEvenementPage({ params }: { params: Promise<
 
   return (
     <AppShell title="Nouvel evenement">
+      <Card className="bg-gradient-to-br from-white to-amber-50/60">
+        <p className="font-serif text-lg font-bold text-zinc-900">Organiser un nouvel evenement</p>
+        <p className="mt-1 text-sm text-zinc-600">Creez un rendez-vous clair avec invites, lieu, date et details utiles.</p>
+      </Card>
       <CreateEventForm
         circleId={circleId}
         members={members.map((member) => ({

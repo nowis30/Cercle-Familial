@@ -21,6 +21,7 @@ type FormValues = z.infer<typeof schema>;
 
 export function NotificationPreferencesForm({ initialValues }: { initialValues: FormValues }) {
   const [feedback, setFeedback] = useState("");
+  const [isSuccessFeedback, setIsSuccessFeedback] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { register, handleSubmit } = useForm<FormValues>({
@@ -32,15 +33,17 @@ export function NotificationPreferencesForm({ initialValues }: { initialValues: 
     <form
       onSubmit={handleSubmit(async (values) => {
         setIsSubmitting(true);
+        setIsSuccessFeedback(false);
         const result = await updateNotificationPreferencesAction(values);
         setIsSubmitting(false);
+        setIsSuccessFeedback(Boolean(result.success));
         setFeedback(result.message ?? (result.success ? "Preferences enregistrees." : "Erreur."));
       })}
-      className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4"
+      className="space-y-3 rounded-3xl border border-indigo-100 bg-white p-4"
     >
       <div>
-        <label className="mb-1 block text-sm font-medium">Anniversaires</label>
-        <select className="h-10 w-full rounded-xl border border-zinc-300 px-3" {...register("birthdaysChannel")}>
+        <label className="mb-1 block text-sm font-semibold text-zinc-700">Anniversaires</label>
+        <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("birthdaysChannel")}>
           <option value="APP">Dans l&apos;application</option>
           <option value="EMAIL">Par courriel</option>
           <option value="NONE">Aucune</option>
@@ -48,8 +51,8 @@ export function NotificationPreferencesForm({ initialValues }: { initialValues: 
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Evenements a venir</label>
-        <select className="h-10 w-full rounded-xl border border-zinc-300 px-3" {...register("upcomingEventsChannel")}>
+        <label className="mb-1 block text-sm font-semibold text-zinc-700">Evenements a venir</label>
+        <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("upcomingEventsChannel")}>
           <option value="APP">Dans l&apos;application</option>
           <option value="EMAIL">Par courriel</option>
           <option value="NONE">Aucune</option>
@@ -57,8 +60,8 @@ export function NotificationPreferencesForm({ initialValues }: { initialValues: 
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">RSVP manquants</label>
-        <select className="h-10 w-full rounded-xl border border-zinc-300 px-3" {...register("rsvpMissingChannel")}>
+        <label className="mb-1 block text-sm font-semibold text-zinc-700">RSVP manquants</label>
+        <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("rsvpMissingChannel")}>
           <option value="APP">Dans l&apos;application</option>
           <option value="EMAIL">Par courriel</option>
           <option value="NONE">Aucune</option>
@@ -66,8 +69,8 @@ export function NotificationPreferencesForm({ initialValues }: { initialValues: 
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Items urgents</label>
-        <select className="h-10 w-full rounded-xl border border-zinc-300 px-3" {...register("urgentItemsChannel")}>
+        <label className="mb-1 block text-sm font-semibold text-zinc-700">Items urgents</label>
+        <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("urgentItemsChannel")}>
           <option value="APP">Dans l&apos;application</option>
           <option value="EMAIL">Par courriel</option>
           <option value="NONE">Aucune</option>
@@ -75,15 +78,19 @@ export function NotificationPreferencesForm({ initialValues }: { initialValues: 
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Nouveaux messages</label>
-        <select className="h-10 w-full rounded-xl border border-zinc-300 px-3" {...register("newMessagesChannel")}>
+        <label className="mb-1 block text-sm font-semibold text-zinc-700">Nouveaux messages</label>
+        <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("newMessagesChannel")}>
           <option value="APP">Dans l&apos;application</option>
           <option value="EMAIL">Par courriel</option>
           <option value="NONE">Aucune</option>
         </select>
       </div>
 
-      {feedback ? <p className="text-xs text-zinc-600">{feedback}</p> : null}
+      {feedback ? (
+        <p className={`rounded-xl px-3 py-2 text-xs font-semibold ${isSuccessFeedback ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+          {feedback}
+        </p>
+      ) : null}
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Enregistrement..." : "Enregistrer"}
       </Button>

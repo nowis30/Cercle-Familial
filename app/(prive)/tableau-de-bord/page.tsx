@@ -66,6 +66,7 @@ export default async function TableauDeBordPage() {
   return (
     <AppShell title="Tableau de bord">
       <DashboardSection title="Prochains evenements" description="Ce qui s'en vient dans vos cercles.">
+        {upcomingEvents.length === 0 ? <p className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-3 text-sm text-zinc-600">Aucun evenement planifie pour le moment.</p> : null}
         {upcomingEvents.map((event) => (
           <EventCard
             key={event.id}
@@ -83,6 +84,7 @@ export default async function TableauDeBordPage() {
       </DashboardSection>
 
       <DashboardSection title="Anniversaires a venir">
+        {birthdays.length === 0 ? <p className="rounded-2xl border border-pink-100 bg-pink-50/60 px-3 py-3 text-sm text-zinc-600">Aucun anniversaire a venir ce mois-ci.</p> : null}
         <BirthdayList
           items={birthdays.map((birthday) => ({
             id: birthday.id,
@@ -94,10 +96,11 @@ export default async function TableauDeBordPage() {
 
       <DashboardSection title="Messages recents">
         <ul className="space-y-2">
+          {messages.length === 0 ? <li className="rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-600">Pas encore de message recent.</li> : null}
           {messages.map((message) => (
-            <li key={message.id} className="rounded-xl bg-zinc-50 px-3 py-2 text-sm">
-              <span className="font-medium">{message.author.name}: </span>
-              {message.content}
+            <li key={message.id} className="rounded-2xl border border-zinc-200/80 bg-zinc-50/70 px-3 py-3 text-sm">
+              <span className="font-semibold text-zinc-900">{message.author.name}: </span>
+              <span className="text-zinc-700">{message.content}</span>
             </li>
           ))}
         </ul>
@@ -105,10 +108,13 @@ export default async function TableauDeBordPage() {
 
       <DashboardSection title="Reponses manquantes">
         <ul className="space-y-2 text-sm">
+          {upcomingEvents.filter((event) => event.invites.length > event.attendances.length).length === 0 ? (
+            <li className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-zinc-600">Toutes les reponses sont a jour.</li>
+          ) : null}
           {upcomingEvents
             .filter((event) => event.invites.length > event.attendances.length)
             .map((event) => (
-              <li key={event.id} className="rounded-xl bg-zinc-50 px-3 py-2">
+              <li key={event.id} className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3 font-medium text-amber-900">
                 {event.title}: {event.invites.length - event.attendances.length} reponse(s) manquante(s)
               </li>
             ))}
@@ -117,9 +123,11 @@ export default async function TableauDeBordPage() {
 
       <DashboardSection title="Items urgents ou manquants">
         <ul className="space-y-2 text-sm">
+          {urgentItems.length === 0 ? <li className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-zinc-600">Aucun item urgent ou manquant.</li> : null}
           {urgentItems.map((item) => (
-            <li key={item.id} className="rounded-xl bg-zinc-50 px-3 py-2">
-              {item.name} x{item.quantity} - {item.status}
+            <li key={item.id} className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
+              <span className="font-semibold text-zinc-900">{item.name}</span> x{item.quantity}
+              <span className="ml-2 rounded-full bg-white px-2 py-1 text-xs font-semibold text-rose-700">{item.status}</span>
             </li>
           ))}
         </ul>
@@ -127,10 +135,10 @@ export default async function TableauDeBordPage() {
 
       <DashboardSection title="Acces rapides">
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <Link href="/cercles" className="rounded-xl border border-zinc-200 bg-white px-3 py-2">
+          <Link href="/cercles" className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 font-semibold text-indigo-800 transition-colors hover:bg-indigo-100">
             Mes cercles
           </Link>
-          <Link href="/cercles" className="rounded-xl border border-zinc-200 bg-white px-3 py-2">
+          <Link href="/cercles" className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
             Calendrier
           </Link>
         </div>

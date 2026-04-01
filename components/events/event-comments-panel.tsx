@@ -22,7 +22,7 @@ export function EventCommentsPanel({ eventId, comments }: { eventId: string; com
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="flex gap-2 rounded-2xl border border-indigo-100 bg-white p-2">
         <Input placeholder="Ajouter un commentaire" value={content} onChange={(event) => setContent(event.target.value)} />
         <Button
           onClick={async () => {
@@ -45,6 +45,7 @@ export function EventCommentsPanel({ eventId, comments }: { eventId: string; com
                 key={comment.id}
                 size="sm"
                 variant="ghost"
+                className="text-rose-600 hover:bg-rose-50"
                 onClick={async () => {
                   if (!window.confirm("Supprimer ce commentaire ?")) return;
                   await deleteEventCommentAction({ commentId: comment.id });

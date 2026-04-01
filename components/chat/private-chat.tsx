@@ -24,7 +24,7 @@ export function PrivateChat({
     <div className="space-y-3">
       {messages.length === 0 ? <EmptyState title="Conversation vide" description="Envoyez le premier message." /> : <CircleChat messages={messages} />}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 rounded-2xl border border-indigo-100 bg-white p-2">
         <Input placeholder="Ecrire un message" value={content} onChange={(event) => setContent(event.target.value)} />
         <Button
           onClick={async () => {
@@ -42,7 +42,7 @@ export function PrivateChat({
           Envoyer
         </Button>
       </div>
-      {feedback ? <p className="text-xs text-zinc-600">{feedback}</p> : null}
+      {feedback ? <p className="text-xs font-medium text-rose-700">{feedback}</p> : null}
     </div>
   );
 }

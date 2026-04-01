@@ -45,25 +45,30 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
 
   return (
     <AppShell title={membership.circle.name}>
+      <Card className="bg-gradient-to-br from-white to-indigo-50/50">
+        <p className="font-serif text-lg font-bold text-zinc-900">{membership.circle.name}</p>
+        {membership.circle.description ? <p className="mt-1 text-sm text-zinc-600">{membership.circle.description}</p> : null}
+      </Card>
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <Link href={`/cercles/${circleId}/calendrier`} className="rounded-xl border border-zinc-200 bg-white px-3 py-2">
+        <Link href={`/cercles/${circleId}/calendrier`} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 font-semibold text-indigo-800 transition-colors hover:bg-indigo-100">
           Calendrier
         </Link>
-        <Link href={`/cercles/${circleId}/membres`} className="rounded-xl border border-zinc-200 bg-white px-3 py-2">
+        <Link href={`/cercles/${circleId}/membres`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
           Membres
         </Link>
-        <Link href={`/cercles/${circleId}/discussion`} className="rounded-xl border border-zinc-200 bg-white px-3 py-2">
+        <Link href={`/cercles/${circleId}/discussion`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
           Discussion
         </Link>
-        <Link href={`/cercles/${circleId}/evenements/nouveau`} className="rounded-xl border border-zinc-200 bg-white px-3 py-2">
+        <Link href={`/cercles/${circleId}/evenements/nouveau`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
           Nouvel evenement
         </Link>
       </div>
       <CreateInviteForm circleId={circleId} />
 
       <Card>
-        <p className="mb-2 text-sm font-medium">Evenements recents</p>
+        <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Evenements recents</p>
         <div className="space-y-2">
+          {events.length === 0 ? <p className="rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-600">Aucun evenement pour le moment.</p> : null}
           {events.map((event) => (
             <EventCard
               key={event.id}

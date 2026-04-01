@@ -25,7 +25,7 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
 
   return (
     <div className="space-y-3">
-      <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
+      <div className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3">
         <Input
           ref={fileInputRef}
           type="file"
@@ -36,7 +36,7 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
             setFile(event.target.files?.[0] ?? null);
           }}
         />
-        {file ? <p className="text-xs text-zinc-500">Fichier: {file.name}</p> : null}
+        {file ? <p className="text-xs font-medium text-zinc-600">Fichier: {file.name}</p> : null}
         <Input placeholder="Legende (facultative)" value={caption} onChange={(event) => setCaption(event.target.value)} />
         <Button
           className="w-full"
@@ -80,11 +80,11 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
         >
           {isUploading ? "Televersement..." : "Ajouter une photo"}
         </Button>
-        {feedback ? <p className="text-xs text-zinc-600">{feedback}</p> : null}
+        {feedback ? <p className="text-xs font-medium text-indigo-700">{feedback}</p> : null}
       </div>
 
       <PhotoGallery photos={photos.map((photo) => ({ id: photo.id, url: photo.url, caption: photo.caption ?? undefined }))} />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-zinc-200/80 bg-white p-2">
         {photos
           .filter((photo) => photo.canDelete)
           .map((photo) => (
@@ -92,6 +92,7 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
               key={photo.id}
               size="sm"
               variant="ghost"
+              className="text-rose-600 hover:bg-rose-50"
               onClick={async () => {
                 if (!window.confirm("Supprimer cette photo ?")) return;
                 await deleteEventPhotoAction({ photoId: photo.id });

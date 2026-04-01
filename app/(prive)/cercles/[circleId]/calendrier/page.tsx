@@ -1,32 +1,39 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  addMonths,
+  endOfMonth,
+  format,
+  isSameMonth,
+  isToday,
+  parseISO,
+  startOfMonth,
+} from "date-fns";
+import { frCA } from "date-fns/locale";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
+import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
 import { prisma } from "@/lib/prisma";
 
-function getHolidayEntries(year: number, monthIndex: number) {
-  const all = [
-    { label: "Jour de l'An", date: new Date(year, 0, 1) },
-    { label: "Fete nationale (QC)", date: new Date(year, 5, 24) },
-    { label: "Fete du Canada", date: new Date(year, 6, 1) },
-    { label: "Noel", date: new Date(year, 11, 25) },
-    { label: "Paques", date: new Date(year, 3, 5) },
-  ];
-
-  return all.filter((entry) => entry.date.getMonth() === monthIndex);
-}
+type DayItem = {
+  id: string;
+  kind: "event" | "birthday" | "important" | "holiday";
+  label: string;
+  href?: string;
+  timeLabel?: string;
+};
 
 export default async function CalendrierPage({
   params,
   searchParams,
 }: {
   params: Promise<{ circleId: string }>;
-  searchParams: Promise<{ month?: string; type?: string }>;
+  searchParams: Promise<{ month?: string; type?: string; day?: string }>;
 }) {
   const { circleId } = await params;
-  const { month, type } = await searchParams;
+  const { month, type, day } = await searchParams;
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -46,11 +53,11 @@ export default async function CalendrierPage({
     redirect("/cercles");
   }
 
-  const now = month ? new Date(`${month}-01T00:00:00`) : new Date();
+  const now = month ? parseISO(`${month}-01`) : new Date();
   const currentMonth = Number.isNaN(now.getTime()) ? new Date() : now;
-  const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-  const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-  const monthLabel = monthStart.toLocaleDateString("fr-CA", { month: "long", year: "numeric" });
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const monthLabel = format(monthStart, "MMMM yyyy", { locale: frCA });
 
   const selectedType = type ?? "ALL";
   const eventWhereType = selectedType === "ALL" ? undefined : selectedType;
@@ -88,29 +95,86 @@ export default async function CalendrierPage({
     }),
   ]);
 
-  const prevMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1).toISOString().slice(0, 7);
-  const nextMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1).toISOString().slice(0, 7);
-  const holidays = getHolidayEntries(monthStart.getFullYear(), monthStart.getMonth());
+  const prevMonth = format(addMonths(monthStart, -1), "yyyy-MM");
+  const nextMonth = format(addMonths(monthStart, 1), "yyyy-MM");
+  const monthKey = format(monthStart, "yyyy-MM");
+  const holidays = getHolidayEntriesForMonth(monthStart.getFullYear(), monthStart.getMonth());
+  const gridDates = getMonthGridDates(monthStart);
+  const selectedDay = day;
 
-  const days = Array.from({ length: monthEnd.getDate() }, (_, index) => index + 1);
+  const itemsByDay = new Map<string, DayItem[]>();
+  const pushDayItem = (dateKey: string, item: DayItem) => {
+    const list = itemsByDay.get(dateKey) ?? [];
+    list.push(item);
+    itemsByDay.set(dateKey, list);
+  };
 
-  const eventsByDay = new Map<number, typeof events>();
   for (const event of events) {
-    const day = new Date(event.startsAt).getDate();
-    const list = eventsByDay.get(day) ?? [];
-    list.push(event);
-    eventsByDay.set(day, list);
+    const dateKey = format(new Date(event.startsAt), "yyyy-MM-dd");
+    pushDayItem(dateKey, {
+      id: event.id,
+      kind: "event",
+      label: event.title,
+      href: `/cercles/${circleId}/evenements/${event.id}`,
+      timeLabel: format(new Date(event.startsAt), "HH:mm"),
+    });
   }
+
+  for (const profile of birthdays) {
+    if (!profile.birthDate) continue;
+    const birthDate = new Date(profile.birthDate);
+    if (birthDate.getMonth() !== monthStart.getMonth()) continue;
+    const dateKey = format(new Date(monthStart.getFullYear(), monthStart.getMonth(), birthDate.getDate()), "yyyy-MM-dd");
+    pushDayItem(dateKey, {
+      id: `birthday-${profile.id}`,
+      kind: "birthday",
+      label: `Anniversaire: ${profile.firstName}`,
+    });
+  }
+
+  for (const profile of importantDates) {
+    const candidates = [
+      { date: profile.marriageDate, label: "Anniversaire de mariage" },
+      { date: profile.baptismDate, label: "Bapteme" },
+      { date: profile.confirmationDate, label: "Confirmation" },
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate.date) continue;
+      const d = new Date(candidate.date);
+      if (d.getMonth() !== monthStart.getMonth()) continue;
+      const dateKey = format(new Date(monthStart.getFullYear(), monthStart.getMonth(), d.getDate()), "yyyy-MM-dd");
+      pushDayItem(dateKey, {
+        id: `important-${profile.id}-${candidate.label}`,
+        kind: "important",
+        label: `${candidate.label}: ${profile.firstName}`,
+      });
+    }
+  }
+
+  for (const holiday of holidays) {
+    const dateKey = format(holiday.date, "yyyy-MM-dd");
+    pushDayItem(dateKey, {
+      id: `holiday-${holiday.label}`,
+      kind: "holiday",
+      label: holiday.label,
+    });
+  }
+
+  const selectedDateKey = selectedDay && /^\d{4}-\d{2}-\d{2}$/.test(selectedDay) ? selectedDay : format(monthStart, "yyyy-MM-dd");
+  const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
+
+  const dayNameLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
   return (
     <AppShell title="Calendrier">
-      <Card>
+      <Card className="bg-gradient-to-br from-white to-indigo-50/50">
         <div className="flex items-center justify-between">
-          <Link className="text-sm text-zinc-600 underline" href={`/cercles/${circleId}/calendrier?month=${prevMonth}&type=${selectedType}`}>
+          <Link className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50" href={`/cercles/${circleId}/calendrier?month=${prevMonth}&type=${selectedType}`}>
             Mois precedent
           </Link>
-          <p className="text-sm font-semibold capitalize">{monthLabel}</p>
-          <Link className="text-sm text-zinc-600 underline" href={`/cercles/${circleId}/calendrier?month=${nextMonth}&type=${selectedType}`}>
+          <p className="font-serif text-lg font-bold capitalize text-zinc-900">{monthLabel}</p>
+          <Link className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50" href={`/cercles/${circleId}/calendrier?month=${nextMonth}&type=${selectedType}`}>
             Mois suivant
           </Link>
         </div>
@@ -120,8 +184,8 @@ export default async function CalendrierPage({
             {["ALL", "ANNIVERSAIRE", "SOUPER_FAMILIAL", "NOEL", "AUTRE"].map((eventType) => (
               <Link
                 key={eventType}
-                href={`/cercles/${circleId}/calendrier?month=${monthStart.toISOString().slice(0, 7)}&type=${eventType}`}
-                className={`rounded-full px-3 py-1 ${selectedType === eventType ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-700"}`}
+                href={`/cercles/${circleId}/calendrier?month=${monthKey}&type=${eventType}`}
+                className={`rounded-full border px-3 py-1 font-semibold ${selectedType === eventType ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-zinc-200 bg-white text-zinc-600"}`}
               >
                 {eventType}
               </Link>
@@ -132,32 +196,86 @@ export default async function CalendrierPage({
 
       <Card>
         <p className="mb-2 text-sm font-medium">Vue mensuelle</p>
+        <div className="mb-1 grid grid-cols-7 gap-1 text-[11px] font-semibold text-zinc-500">
+          {dayNameLabels.map((dayName) => (
+            <div key={dayName} className="rounded-lg bg-zinc-50 px-1 py-1 text-center">
+              {dayName}
+            </div>
+          ))}
+        </div>
         <div className="grid grid-cols-7 gap-1 text-xs">
-          {days.map((day) => {
-            const dayEvents = eventsByDay.get(day) ?? [];
+          {gridDates.map((dayDate) => {
+            const dateKey = format(dayDate, "yyyy-MM-dd");
+            const dayItems = itemsByDay.get(dateKey) ?? [];
+            const visibleItems = dayItems.slice(0, 2);
+            const hiddenCount = Math.max(0, dayItems.length - visibleItems.length);
+            const isCurrentMonth = isSameMonth(dayDate, monthStart);
+            const dayLink = `/cercles/${circleId}/calendrier?month=${monthKey}&type=${selectedType}&day=${dateKey}`;
+
             return (
-              <div key={day} className="min-h-16 rounded-lg border border-zinc-200 bg-white p-1">
-                <p className="text-[11px] font-semibold text-zinc-700">{day}</p>
-                {dayEvents.slice(0, 2).map((event) => (
-                  <Link key={event.id} href={`/cercles/${circleId}/evenements/${event.id}`} className="block truncate text-[10px] text-emerald-700 underline">
-                    {event.title}
+              <div key={dateKey} className={`min-h-20 rounded-xl border p-1.5 transition-colors ${isCurrentMonth ? "border-indigo-100 bg-white" : "border-zinc-100 bg-zinc-50"} ${selectedDateKey === dateKey ? "ring-2 ring-indigo-200" : ""}`}>
+                <p className={`text-[11px] font-semibold ${isToday(dayDate) ? "text-indigo-700" : isCurrentMonth ? "text-zinc-700" : "text-zinc-400"}`}>
+                  <Link href={dayLink} className={`inline-flex h-6 w-6 items-center justify-center rounded-full underline-offset-2 hover:underline ${isToday(dayDate) ? "bg-indigo-100" : ""}`}>
+                    {format(dayDate, "d")}
                   </Link>
+                </p>
+                {visibleItems.map((item) => (
+                  item.href ? (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      className={`mt-0.5 block truncate rounded-md px-1 py-0.5 text-[10px] font-medium ${
+                        item.kind === "event"
+                          ? "bg-indigo-100 text-indigo-800"
+                          : item.kind === "holiday"
+                            ? "bg-amber-100 text-amber-900"
+                            : item.kind === "birthday"
+                              ? "bg-pink-100 text-pink-800"
+                              : "bg-zinc-100 text-zinc-700"
+                      }`}
+                    >
+                      {item.timeLabel ? `${item.timeLabel} ` : ""}
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <div
+                      key={item.id}
+                      className={`mt-0.5 truncate rounded-md px-1 py-0.5 text-[10px] font-medium ${
+                        item.kind === "event"
+                          ? "bg-indigo-100 text-indigo-800"
+                          : item.kind === "holiday"
+                            ? "bg-amber-100 text-amber-900"
+                            : item.kind === "birthday"
+                              ? "bg-pink-100 text-pink-800"
+                              : "bg-zinc-100 text-zinc-700"
+                      }`}
+                    >
+                      {item.timeLabel ? `${item.timeLabel} ` : ""}
+                      {item.label}
+                    </div>
+                  )
                 ))}
+                {hiddenCount > 0 ? <p className="mt-0.5 text-[10px] font-medium text-zinc-500">+ {hiddenCount} autres</p> : null}
               </div>
             );
           })}
         </div>
       </Card>
 
-      <Card>
-        <p className="mb-2 text-sm font-medium">Evenements du mois</p>
-        {events.length === 0 ? <p className="text-sm text-zinc-600">Aucun evenement pour ce mois.</p> : null}
+      <Card className="bg-gradient-to-br from-white to-amber-50/40">
+        <p className="mb-2 text-sm font-semibold text-zinc-700">Jour selectionne: {selectedDateKey}</p>
+        {selectedItems.length === 0 ? <p className="text-sm text-zinc-600">Aucun element ce jour-la.</p> : null}
         <div className="space-y-2">
-          {events.map((event) => (
-            <Link key={event.id} href={`/cercles/${circleId}/evenements/${event.id}`} className="block rounded-xl bg-zinc-50 px-3 py-2">
-              <p className="text-sm font-medium">{event.title}</p>
-              <p className="text-xs text-zinc-600">{new Date(event.startsAt).toLocaleString("fr-CA")}</p>
-            </Link>
+          {selectedItems.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-zinc-200/80 bg-white px-3 py-3">
+              <p className="text-sm font-semibold text-zinc-900">{item.label}</p>
+              {item.timeLabel ? <p className="text-xs text-zinc-600">Heure: {item.timeLabel}</p> : null}
+              {item.href ? (
+                <Link href={item.href} className="mt-1 inline-block text-xs font-semibold text-indigo-700 underline">
+                  Ouvrir le detail
+                </Link>
+              ) : null}
+            </div>
           ))}
         </div>
       </Card>

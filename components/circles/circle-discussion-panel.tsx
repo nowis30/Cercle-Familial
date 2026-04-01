@@ -22,7 +22,7 @@ export function CircleDiscussionPanel({ circleId, messages }: { circleId: string
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="flex gap-2 rounded-2xl border border-indigo-100 bg-white p-2">
         <Input placeholder="Ecrire un message" value={content} onChange={(event) => setContent(event.target.value)} />
         <Button
           onClick={async () => {
@@ -45,6 +45,7 @@ export function CircleDiscussionPanel({ circleId, messages }: { circleId: string
               key={message.id}
               size="sm"
               variant="ghost"
+              className="text-rose-600 hover:bg-rose-50"
               onClick={async () => {
                 if (!window.confirm("Supprimer ce message ?")) return;
                 await deleteCircleMessageAction({ messageId: message.id });

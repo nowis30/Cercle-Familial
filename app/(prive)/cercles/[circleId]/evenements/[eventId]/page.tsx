@@ -5,8 +5,10 @@ import { EventContributionsPanel } from "@/components/events/event-contributions
 import { EventPhotosPanel } from "@/components/events/event-photos-panel";
 import { RSVPForm } from "@/components/events/rsvp-form";
 import { AppShell } from "@/components/layout/app-shell";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
+import { RSVP_LABELS } from "@/lib/constants";
 import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -60,18 +62,22 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   const totalAdults = event.attendances.reduce((sum, attendance) => sum + attendance.adultsCount, 0);
   const totalChildren = event.attendances.reduce((sum, attendance) => sum + attendance.childrenCount, 0);
   const missingResponses = Math.max(0, event.invites.length - totalResponses);
+  const myRsvpVariant = myRsvp?.response === "JE_VIENS" ? "default" : myRsvp?.response === "PEUT_ETRE" ? "warning" : "danger";
 
   return (
     <AppShell title={event.title}>
-      <Card>
-        <p className="text-sm text-zinc-600">{new Date(event.startsAt).toLocaleString("fr-CA")}</p>
+      <Card className="bg-gradient-to-br from-white to-indigo-50/50">
+        <p className="text-sm font-semibold text-indigo-700">{new Date(event.startsAt).toLocaleString("fr-CA")}</p>
         <p className="mt-1 text-sm text-zinc-700">Lieu: {event.locationName}</p>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600">
-          <p>Reponses: {totalResponses}</p>
-          <p>Personnes: {totalPeople}</p>
-          <p>Adultes: {totalAdults}</p>
-          <p>Enfants: {totalChildren}</p>
-          <p>Manquantes: {missingResponses}</p>
+        <div className="mt-2">
+          {myRsvp ? <Badge variant={myRsvpVariant}>Mon RSVP: {RSVP_LABELS[myRsvp.response] ?? myRsvp.response}</Badge> : <Badge variant="secondary">Mon RSVP: Non repondu</Badge>}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <p className="rounded-xl bg-white px-2 py-1 text-zinc-700">Reponses: {totalResponses}</p>
+          <p className="rounded-xl bg-white px-2 py-1 text-zinc-700">Personnes: {totalPeople}</p>
+          <p className="rounded-xl bg-white px-2 py-1 text-zinc-700">Adultes: {totalAdults}</p>
+          <p className="rounded-xl bg-white px-2 py-1 text-zinc-700">Enfants: {totalChildren}</p>
+          <p className="rounded-xl bg-amber-50 px-2 py-1 font-semibold text-amber-800">Manquantes: {missingResponses}</p>
         </div>
       </Card>
       <RSVPForm
@@ -89,7 +95,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
         }
       />
       <Card>
-        <p className="mb-2 text-sm font-medium">Qui apporte quoi</p>
+        <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Qui apporte quoi</p>
         <EventContributionsPanel
           eventId={event.id}
           items={event.contributionItems.map((item) => ({
@@ -103,7 +109,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
         />
       </Card>
       <Card>
-        <p className="mb-2 text-sm font-medium">Commentaires</p>
+        <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Commentaires</p>
         <EventCommentsPanel
           eventId={event.id}
           comments={event.comments.map((comment) => ({
@@ -116,7 +122,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
         />
       </Card>
       <Card>
-        <p className="mb-2 text-sm font-medium">Photos souvenirs</p>
+        <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Photos souvenirs</p>
         <EventPhotosPanel
           eventId={event.id}
           photos={event.photos.map((photo) => ({

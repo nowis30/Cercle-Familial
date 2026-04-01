@@ -2,9 +2,9 @@ export function BirthdayList({ items }: { items: Array<{ id: string; name: strin
   return (
     <ul className="space-y-2">
       {items.map((item) => (
-        <li key={item.id} className="flex items-center justify-between rounded-xl bg-zinc-50 px-3 py-2 text-sm">
-          <span>{item.name}</span>
-          <span className="text-zinc-500">{item.date}</span>
+        <li key={item.id} className="flex items-center justify-between rounded-2xl border border-pink-100 bg-pink-50/70 px-3 py-2 text-sm">
+          <span className="font-medium text-zinc-800">{item.name}</span>
+          <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-pink-700">{item.date}</span>
         </li>
       ))}
     </ul>

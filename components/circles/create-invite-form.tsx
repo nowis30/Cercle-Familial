@@ -11,8 +11,8 @@ export function CreateInviteForm({ circleId }: { circleId: string }) {
   const [inviteUrl, setInviteUrl] = useState<string>("");
 
   return (
-    <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-4">
-      <h3 className="text-sm font-semibold">Invitation par lien</h3>
+    <div className="space-y-2 rounded-3xl border border-indigo-100 bg-white p-4">
+      <h3 className="font-serif text-lg font-bold text-zinc-900">Invitation par lien</h3>
       <p className="text-xs text-zinc-500">Genere un lien valide 7 jours, 5 utilisations.</p>
       <Button
         onClick={async () => {
@@ -39,8 +39,8 @@ export function CreateInviteForm({ circleId }: { circleId: string }) {
       >
         Generer un lien d&apos;invitation
       </Button>
-      {inviteUrl ? <p className="break-all text-xs text-emerald-700">{inviteUrl}</p> : null}
-      {feedback ? <p className="text-xs text-zinc-600">{feedback}</p> : null}
+      {inviteUrl ? <p className="break-all rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">{inviteUrl}</p> : null}
+      {feedback ? <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{feedback}</p> : null}
     </div>
   );
 }

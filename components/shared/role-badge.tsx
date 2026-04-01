@@ -8,10 +8,10 @@ const labels: Record<CircleRole, string> = {
   ENFANT: "Enfant",
 };
 
-const variants: Record<CircleRole, "default" | "secondary" | "warning"> = {
-  ADMIN: "default",
+const variants: Record<CircleRole, "primary" | "secondary" | "birthday"> = {
+  ADMIN: "primary",
   ADULTE: "secondary",
-  ENFANT: "warning",
+  ENFANT: "birthday",
 };
 
 export function RoleBadge({ role }: { role: CircleRole }) {

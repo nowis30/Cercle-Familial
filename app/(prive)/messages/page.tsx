@@ -62,9 +62,9 @@ export default async function MessagesPage() {
         const lastMessage = entry.conversation.messages[0];
         return (
           <Link key={entry.conversation.id} href={`/messages/${entry.conversation.id}`}>
-            <Card>
-              <p className="font-medium">{other?.user.name ?? "Conversation"}</p>
-              <p className="text-sm text-zinc-600">{lastMessage?.content ?? "Aucun message"}</p>
+            <Card className="transition-shadow hover:shadow-[0_12px_22px_-18px_rgba(30,64,175,0.45)]">
+              <p className="font-semibold text-zinc-900">{other?.user.name ?? "Conversation"}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{lastMessage?.content ?? "Aucun message"}</p>
             </Card>
           </Link>
         );

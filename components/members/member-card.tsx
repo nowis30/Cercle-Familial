@@ -11,11 +11,11 @@ type MemberCardProps = {
 
 export function MemberCard({ name, role, note }: MemberCardProps) {
   return (
-    <Card>
+    <Card className="transition-shadow hover:shadow-[0_12px_22px_-20px_rgba(30,64,175,0.45)]">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-medium text-zinc-900">{name}</p>
-          {note ? <p className="text-xs text-zinc-500">{note}</p> : null}
+          <p className="text-base font-semibold text-zinc-900">{name}</p>
+          {note ? <p className="mt-1 text-xs text-zinc-500">{note}</p> : null}
         </div>
         <RoleBadge role={role} />
       </div>
