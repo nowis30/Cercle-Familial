@@ -1,5 +1,8 @@
 "use server";
 
+import { unlink } from "node:fs/promises";
+import { join } from "node:path";
+
 import { ContributionStatus, EventType, RsvpResponse } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -378,7 +381,7 @@ export async function deleteEventCommentAction(input: z.infer<typeof deleteEvent
 
 const eventPhotoSchema = z.object({
   eventId: z.string().min(1),
-  url: z.string().min(1),
+  url: z.string().startsWith("/uploads/events/", "URL photo invalide").min(1),
   caption: z.string().optional(),
 });
 
@@ -461,6 +464,14 @@ export async function deleteEventPhotoAction(input: z.infer<typeof deleteEventPh
   }
 
   await prisma.eventPhoto.delete({ where: { id: photo.id } });
+
+  // Nettoyage best-effort du fichier local pour eviter les orphelins.
+  if (photo.url.startsWith("/uploads/events/")) {
+    const relativePath = photo.url.replace(/^\/+/, "");
+    const absolutePath = join(process.cwd(), "public", relativePath.replace(/^public\//, ""));
+    await unlink(absolutePath).catch(() => undefined);
+  }
+
   revalidatePath(`/cercles/${photo.event.circleId}/evenements/${photo.event.id}`);
   return { success: true };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { addEventPhotoAction, deleteEventPhotoAction } from "@/actions/events";
 import { PhotoGallery } from "@/components/events/photo-gallery";
@@ -17,38 +17,68 @@ type PhotoView = {
 
 export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos: PhotoView[] }) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
 
   return (
     <div className="space-y-3">
       <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
-        <Input type="file" accept="image/*" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+        <Input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          capture="environment"
+          onChange={(event) => {
+            setFeedback("");
+            setFile(event.target.files?.[0] ?? null);
+          }}
+        />
+        {file ? <p className="text-xs text-zinc-500">Fichier: {file.name}</p> : null}
         <Input placeholder="Legende (facultative)" value={caption} onChange={(event) => setCaption(event.target.value)} />
         <Button
+          className="w-full"
+          disabled={isUploading}
           onClick={async () => {
             if (!file) {
               setFeedback("Choisir une image.");
               return;
             }
 
+            setIsUploading(true);
+            setFeedback("");
+
             const formData = new FormData();
             formData.append("file", file);
             const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+            const uploadBody = (await uploadRes.json().catch(() => ({}))) as { error?: string; url?: string };
+
             if (!uploadRes.ok) {
-              setFeedback("Echec upload.");
+              setFeedback(uploadBody.error ?? "Echec du televersement.");
+              setIsUploading(false);
               return;
             }
-            const body = (await uploadRes.json()) as { url: string };
-            await addEventPhotoAction({ eventId, url: body.url, caption });
+
+            const result = await addEventPhotoAction({ eventId, url: uploadBody.url ?? "", caption });
+            if (!result.success) {
+              setFeedback(result.message ?? "Impossible d'associer la photo a l'evenement.");
+              setIsUploading(false);
+              return;
+            }
+
             setFile(null);
             setCaption("");
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
             setFeedback("Photo ajoutee.");
+            setIsUploading(false);
             router.refresh();
           }}
         >
-          Ajouter la photo
+          {isUploading ? "Televersement..." : "Ajouter une photo"}
         </Button>
         {feedback ? <p className="text-xs text-zinc-600">{feedback}</p> : null}
       </div>

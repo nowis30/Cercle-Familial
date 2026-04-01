@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card } from "@/components/ui/card";
 
 type Photo = {
@@ -9,6 +10,10 @@ type Photo = {
 };
 
 export function PhotoGallery({ photos }: { photos: Photo[] }) {
+  if (photos.length === 0) {
+    return <EmptyState title="Aucune photo" description="Ajoutez la premiere photo souvenir de cet evenement." />;
+  }
+
   return (
     <div className="grid grid-cols-2 gap-3">
       {photos.map((photo) => (

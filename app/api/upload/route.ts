@@ -1,10 +1,17 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import crypto from "node:crypto";
 
 import { NextResponse } from "next/server";
 
 const MAX_SIZE_MB = 8;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const EXTENSIONS_BY_MIME: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
 
 export async function POST(request: Request) {
   try {
@@ -16,22 +23,27 @@ export async function POST(request: Request) {
     }
 
     if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-      return NextResponse.json({ error: "Type de fichier non autorise" }, { status: 400 });
+      return NextResponse.json({ error: "Type de fichier non autorise (jpg, png, webp, gif)" }, { status: 400 });
     }
 
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      return NextResponse.json({ error: "Fichier trop volumineux" }, { status: 400 });
+      return NextResponse.json({ error: `Fichier trop volumineux (max ${MAX_SIZE_MB} Mo)` }, { status: 400 });
+    }
+
+    const extension = EXTENSIONS_BY_MIME[file.type];
+    if (!extension) {
+      return NextResponse.json({ error: "Extension non supportee" }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${extension}`;
     const uploadDir = join(process.cwd(), "public", "uploads", "events");
 
     await mkdir(uploadDir, { recursive: true });
     await writeFile(join(uploadDir, fileName), buffer);
 
-    return NextResponse.json({ url: `/uploads/events/${fileName}` });
+    return NextResponse.json({ url: `/uploads/events/${fileName}`, size: file.size, mimeType: file.type });
   } catch {
     return NextResponse.json({ error: "Erreur de televersement" }, { status: 500 });
   }
