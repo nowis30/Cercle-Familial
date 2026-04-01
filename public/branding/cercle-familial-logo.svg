@@ -1,0 +1,9 @@
+<svg width="720" height="220" viewBox="0 0 720 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="8" y="8" width="204" height="204" rx="52" fill="#EEF2FF"/>
+  <circle cx="110" cy="110" r="66" fill="#4F46E5"/>
+  <path d="M142 112C142 130.778 126.778 146 108 146C89.2223 146 74 130.778 74 112C74 93.2223 89.2223 78 108 78C118.314 78 127.558 82.5827 133.792 89.818" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  <path d="M122 92H146V116" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M146 92L118 120" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  <text x="240" y="104" fill="#18181B" font-family="Merriweather, serif" font-size="48" font-weight="700">Cercle</text>
+  <text x="240" y="158" fill="#4338CA" font-family="Nunito, sans-serif" font-size="48" font-weight="700">Familial</text>
+</svg>

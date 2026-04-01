@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
+import { AppLogo } from "@/components/shared/app-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -19,6 +20,9 @@ export default function ConnexionPage() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-xl bg-zinc-50 px-4 py-8">
+      <div className="mb-5 flex justify-center">
+        <AppLogo />
+      </div>
       <h1 className="text-2xl font-semibold">Connexion</h1>
       <p className="mt-1 text-sm text-zinc-600">Accedez a vos cercles familiaux.</p>
       <form

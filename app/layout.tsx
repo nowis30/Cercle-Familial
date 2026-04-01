@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Merriweather, Nunito } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,20 @@ const merriweather = Merriweather({
 export const metadata: Metadata = {
   title: "Cercle Familial",
   description: "Application familiale privee mobile-first pour organiser evenements, RSVP, contributions et souvenirs.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/branding/cercle-familial-mark.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/branding/cercle-familial-mark.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/branding/cercle-familial-mark.svg"],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4F46E5",
 };
 
 export default function RootLayout({
