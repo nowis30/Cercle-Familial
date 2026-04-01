@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { deleteCircleAction } from "@/actions/circles";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructive-dialog";
 
 export function CircleManagementActions({
   circleId,
+  circleName,
   canManage,
 }: {
   circleId: string;
+  circleName: string;
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -28,18 +30,17 @@ export function CircleManagementActions({
         >
           Modifier le cercle
         </Link>
-        <ConfirmDialog
-          title="Supprimer le cercle"
-          description="Supprimer ce cercle peut affecter les evenements et les membres associes. Veux-tu continuer ?"
+        <ConfirmDestructiveDialog
+          confirmValue={circleName}
+          itemType="cercle"
           triggerLabel="Supprimer le cercle"
-          confirmLabel="Oui, supprimer"
+          warningMessage="Tous les événements, membres, discussions et invitations de ce cercle seront supprimés de façon permanente."
           onConfirm={async () => {
             const result = await deleteCircleAction({ circleId });
             if (!result.success) {
               setFeedback(result.message ?? "Suppression impossible.");
               return;
             }
-
             router.push("/cercles");
             router.refresh();
           }}

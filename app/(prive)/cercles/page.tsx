@@ -31,13 +31,16 @@ export default async function CerclesPage({
 
   return (
     <AppShell title="Mes cercles">
-      <Card className="bg-gradient-to-br from-white to-indigo-50/60">
-        <p className="font-serif text-lg font-bold text-zinc-900">Cercle actif</p>
-        <p className="mt-1 text-sm text-zinc-600">Selectionnez votre cercle en haut, puis accedez rapidement a ses pages utiles.</p>
-      </Card>
+      {/* Bouton "Créer un cercle" toujours visible en haut */}
+      <Link
+        href="/cercles/nouveau"
+        className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition-colors hover:bg-indigo-500"
+      >
+        + Créer un cercle
+      </Link>
 
       {memberships.length === 0 ? (
-        <EmptyState title="Aucun cercle" description="Creez votre premier cercle pour commencer a organiser votre famille." />
+        <EmptyState title="Aucun cercle" description="Créez votre premier cercle pour commencer à organiser votre famille." />
       ) : (
         <>
           <CircleSwitcher
@@ -53,10 +56,10 @@ export default async function CerclesPage({
           />
 
           <Card>
-            <p className="font-semibold text-zinc-900">Acces rapides</p>
+            <p className="font-semibold text-zinc-900">Accès rapides – {activeCircle.name}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-              <Link href={`/cercles/${activeCircle.id}`} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 font-semibold text-indigo-800 transition-colors hover:bg-indigo-100">
-                Ouvrir le cercle
+              <Link href={`/cercles/${activeCircle.id}`} className="col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 font-semibold text-indigo-800 transition-colors hover:bg-indigo-100 text-center">
+                Ouvrir le cercle →
               </Link>
               <Link href={`/cercles/${activeCircle.id}/calendrier`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
                 Calendrier
@@ -67,17 +70,13 @@ export default async function CerclesPage({
               <Link href={`/cercles/${activeCircle.id}/membres`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
                 Membres
               </Link>
+              <Link href={`/cercles/${activeCircle.id}/modifier`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
+                Paramètres du cercle
+              </Link>
             </div>
           </Card>
         </>
       )}
-
-      <Link
-        href="/cercles/nouveau"
-        className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition-colors hover:bg-indigo-500"
-      >
-        Creer un cercle
-      </Link>
     </AppShell>
   );
 }

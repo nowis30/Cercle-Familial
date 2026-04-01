@@ -5,15 +5,17 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { deleteEventAction } from "@/actions/events";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructive-dialog";
 
 export function EventManagementActions({
   circleId,
   eventId,
+  eventTitle,
   canManage,
 }: {
   circleId: string;
   eventId: string;
+  eventTitle: string;
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -30,18 +32,17 @@ export function EventManagementActions({
         >
           Modifier
         </Link>
-        <ConfirmDialog
-          title="Supprimer l'evenement"
-          description="Es-tu certain de vouloir supprimer cet evenement ? Cette action est irreversible."
+        <ConfirmDestructiveDialog
+          confirmValue={eventTitle}
+          itemType="événement"
           triggerLabel="Supprimer"
-          confirmLabel="Oui, supprimer"
+          warningMessage="Les participants, commentaires, photos et contributions liés à cet événement seront supprimés de façon permanente."
           onConfirm={async () => {
             const result = await deleteEventAction({ eventId });
             if (!result.success) {
               setFeedback(result.message ?? "Suppression impossible.");
               return;
             }
-
             router.push(`/cercles/${circleId}`);
             router.refresh();
           }}

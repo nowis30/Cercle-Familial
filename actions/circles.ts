@@ -174,6 +174,63 @@ export async function deleteCircleAction(input: z.infer<typeof deleteCircleSchem
   return { success: true };
 }
 
+const removeMemberSchema = z.object({
+  circleId: z.string().min(1),
+  targetUserId: z.string().min(1),
+});
+
+export async function removeMemberAction(input: z.infer<typeof removeMemberSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Session invalide." };
+  }
+
+  const parsed = removeMemberSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: "Requête invalide." };
+  }
+
+  const { circleId, targetUserId } = parsed.data;
+
+  // Vérifier que l'appelant est admin du cercle
+  const callerMembership = await prisma.circleMembership.findUnique({
+    where: { circleId_userId: { circleId, userId: session.user.id } },
+  });
+  if (!callerMembership || !canManageCircle(callerMembership.role)) {
+    return { success: false, message: "Action réservée aux admins du cercle." };
+  }
+
+  // Empêcher l'auto-exclusion via cette action (l'admin quitte via une autre route)
+  if (targetUserId === session.user.id) {
+    return { success: false, message: "Tu ne peux pas te retirer toi-même via cette action." };
+  }
+
+  // Vérifier que la cible est membre du cercle
+  const targetMembership = await prisma.circleMembership.findUnique({
+    where: { circleId_userId: { circleId, userId: targetUserId } },
+  });
+  if (!targetMembership) {
+    return { success: false, message: "Cette personne n'est pas membre du cercle." };
+  }
+
+  // Empêcher de retirer le dernier admin
+  if (targetMembership.role === CircleRole.ADMIN) {
+    const adminCount = await prisma.circleMembership.count({
+      where: { circleId, role: CircleRole.ADMIN },
+    });
+    if (adminCount <= 1) {
+      return { success: false, message: "Impossible de retirer le seul administrateur du cercle." };
+    }
+  }
+
+  await prisma.circleMembership.delete({
+    where: { circleId_userId: { circleId, userId: targetUserId } },
+  });
+
+  revalidatePath(`/cercles/${circleId}/membres`);
+  return { success: true };
+}
+
 const postCircleMessageSchema = z.object({
   circleId: z.string().min(1),
   content: z.string().trim().min(1).max(1000),

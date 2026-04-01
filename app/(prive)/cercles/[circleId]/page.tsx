@@ -51,7 +51,11 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
         <p className="font-serif text-lg font-bold text-zinc-900">{membership.circle.name}</p>
         {membership.circle.description ? <p className="mt-1 text-sm text-zinc-600">{membership.circle.description}</p> : null}
         <div className="mt-3">
-          <CircleManagementActions circleId={circleId} canManage={canManageCircle(membership.role)} />
+          <CircleManagementActions
+            circleId={circleId}
+            circleName={membership.circle.name}
+            canManage={canManageCircle(membership.role)}
+          />
         </div>
       </Card>
       <div className="grid grid-cols-2 gap-2 text-sm">

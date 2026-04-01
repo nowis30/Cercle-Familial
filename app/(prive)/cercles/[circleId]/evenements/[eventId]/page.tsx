@@ -106,7 +106,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
           </Link>
         </div>
         <div className="mt-2">
-          <EventManagementActions circleId={circleId} eventId={event.id} canManage={canManageEvent} />
+          <EventManagementActions circleId={circleId} eventId={event.id} eventTitle={event.title} canManage={canManageEvent} />
         </div>
         <div className="mt-2">
           {myRsvp ? <Badge variant={myRsvpVariant}>Mon RSVP: {RSVP_LABELS[myRsvp.response] ?? myRsvp.response}</Badge> : <Badge variant="secondary">Mon RSVP: Non repondu</Badge>}
