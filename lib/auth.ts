@@ -1,6 +1,7 @@
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { CircleRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -66,10 +67,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
+const authSecret =
+  process.env.NEXTAUTH_SECRET ??
+  process.env.AUTH_SECRET ??
+  (process.env.DATABASE_URL
+    ? createHash("sha256").update(process.env.DATABASE_URL).digest("hex")
+    : "cercle-familial-fallback-secret");
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
-  secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
+  secret: authSecret,
   pages: {
     signIn: "/connexion",
   },
