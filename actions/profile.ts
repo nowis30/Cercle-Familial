@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { safeCreateHistory } from "@/lib/action-history";
 import { auth } from "@/lib/auth";
+import { upsertNotificationPreferencesSafe } from "@/lib/notification-preferences";
 import { prisma } from "@/lib/prisma";
 import { getAppDefaultTimeZone, isValidIanaTimeZone } from "@/lib/timezone";
 
@@ -129,18 +130,9 @@ export async function updateNotificationPreferencesAction(input: z.infer<typeof 
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.userNotificationPreference.upsert({
-      where: { userId: session.user.id },
-      create: {
-        userId: session.user.id,
-        birthdaysChannel: parsed.data.birthdaysChannel,
-        upcomingEventsChannel: parsed.data.upcomingEventsChannel,
-        rsvpMissingChannel: parsed.data.rsvpMissingChannel,
-        urgentItemsChannel: parsed.data.urgentItemsChannel,
-        tasksOverdueChannel: parsed.data.tasksOverdueChannel,
-        newMessagesChannel: parsed.data.newMessagesChannel,
-      },
-      update: {
+    await upsertNotificationPreferencesSafe(tx, {
+      userId: session.user.id,
+      values: {
         birthdaysChannel: parsed.data.birthdaysChannel,
         upcomingEventsChannel: parsed.data.upcomingEventsChannel,
         rsvpMissingChannel: parsed.data.rsvpMissingChannel,

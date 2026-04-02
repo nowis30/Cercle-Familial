@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { NotificationPreferencesForm } from "@/components/settings/notification-preferences-form";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
+import { getNotificationPreferencesSafe } from "@/lib/notification-preferences";
 import { prisma } from "@/lib/prisma";
 import { getAppDefaultTimeZone, getEffectiveTimeZone, getTimeZoneOptions } from "@/lib/timezone";
 
@@ -15,9 +16,7 @@ export default async function ParametresPage() {
   }
 
   const [prefs, user] = await Promise.all([
-    prisma.userNotificationPreference.findUnique({
-      where: { userId: session.user.id },
-    }),
+    getNotificationPreferencesSafe(session.user.id),
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { timezone: true },

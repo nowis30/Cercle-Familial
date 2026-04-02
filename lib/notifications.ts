@@ -1,5 +1,6 @@
 import { AppNotificationType, NotificationChannel, type Prisma } from "@prisma/client";
 
+import { getNotificationPreferencesSafe, withNotificationPreferenceDefaults } from "@/lib/notification-preferences";
 import { prisma } from "@/lib/prisma";
 
 type ReminderInput = {
@@ -10,24 +11,6 @@ type ReminderInput = {
   href?: string;
   triggerKey: string;
 };
-
-function withDefaultPreferences(prefs: {
-  birthdaysChannel: NotificationChannel;
-  upcomingEventsChannel: NotificationChannel;
-  rsvpMissingChannel: NotificationChannel;
-  urgentItemsChannel: NotificationChannel;
-  tasksOverdueChannel: NotificationChannel;
-  newMessagesChannel: NotificationChannel;
-} | null) {
-  return {
-    birthdaysChannel: prefs?.birthdaysChannel ?? NotificationChannel.APP,
-    upcomingEventsChannel: prefs?.upcomingEventsChannel ?? NotificationChannel.APP,
-    rsvpMissingChannel: prefs?.rsvpMissingChannel ?? NotificationChannel.NONE,
-    urgentItemsChannel: prefs?.urgentItemsChannel ?? NotificationChannel.NONE,
-    tasksOverdueChannel: prefs?.tasksOverdueChannel ?? NotificationChannel.APP,
-    newMessagesChannel: prefs?.newMessagesChannel ?? NotificationChannel.APP,
-  };
-}
 
 async function upsertReminder(tx: Prisma.TransactionClient, reminder: ReminderInput) {
   await tx.appNotification.upsert({
@@ -50,11 +33,11 @@ async function upsertReminder(tx: Prisma.TransactionClient, reminder: ReminderIn
 
 export async function syncAppNotificationsForUser(userId: string) {
   const [prefs, memberships] = await Promise.all([
-    prisma.userNotificationPreference.findUnique({ where: { userId } }),
+    getNotificationPreferencesSafe(userId),
     prisma.circleMembership.findMany({ where: { userId }, select: { circleId: true } }),
   ]);
 
-  const channels = withDefaultPreferences(prefs);
+  const channels = withNotificationPreferenceDefaults(prefs);
   const circleIds = memberships.map((membership) => membership.circleId);
 
   if (circleIds.length === 0) {
