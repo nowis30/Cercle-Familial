@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, MessageCircle, Settings, User, Users } from "lucide-react";
+import { Bell, House, MessageCircle, Settings, User, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/tableau-de-bord", label: "Accueil", icon: House },
   { href: "/cercles", label: "Cercles", icon: Users },
+  { href: "/notifications", label: "Alertes", icon: Bell },
   { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/profil", label: "Profil", icon: User },
   { href: "/parametres", label: "Reglages", icon: Settings },

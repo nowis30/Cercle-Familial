@@ -32,6 +32,7 @@ export const SHARED_TASK_PRIORITY_LABELS: Record<string, string> = {
 export const PRIVATE_PATHS = [
   "/tableau-de-bord",
   "/cercles",
+  "/notifications",
   "/messages",
   "/profil",
   "/parametres",

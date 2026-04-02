@@ -14,6 +14,7 @@ const schema = z.object({
   upcomingEventsChannel: z.enum(["APP", "EMAIL", "NONE"]),
   rsvpMissingChannel: z.enum(["APP", "EMAIL", "NONE"]),
   urgentItemsChannel: z.enum(["APP", "EMAIL", "NONE"]),
+  tasksOverdueChannel: z.enum(["APP", "EMAIL", "NONE"]),
   newMessagesChannel: z.enum(["APP", "EMAIL", "NONE"]),
   timezone: z.string().min(1, "Fuseau horaire requis"),
 });
@@ -92,6 +93,15 @@ export function NotificationPreferencesForm({
       <div>
         <label className="mb-1 block text-sm font-semibold text-zinc-700">Items urgents</label>
         <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("urgentItemsChannel")}>
+          <option value="APP">Dans l&apos;application</option>
+          <option value="EMAIL">Par courriel</option>
+          <option value="NONE">Aucune</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-zinc-700">Taches en retard</label>
+        <select className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300" {...register("tasksOverdueChannel")}>
           <option value="APP">Dans l&apos;application</option>
           <option value="EMAIL">Par courriel</option>
           <option value="NONE">Aucune</option>

@@ -107,6 +107,7 @@ const notificationSchema = z.object({
   upcomingEventsChannel: z.nativeEnum(NotificationChannel),
   rsvpMissingChannel: z.nativeEnum(NotificationChannel),
   urgentItemsChannel: z.nativeEnum(NotificationChannel),
+  tasksOverdueChannel: z.nativeEnum(NotificationChannel),
   newMessagesChannel: z.nativeEnum(NotificationChannel),
   timezone: z.string().trim().min(1, "Fuseau horaire requis."),
 });
@@ -136,6 +137,7 @@ export async function updateNotificationPreferencesAction(input: z.infer<typeof 
         upcomingEventsChannel: parsed.data.upcomingEventsChannel,
         rsvpMissingChannel: parsed.data.rsvpMissingChannel,
         urgentItemsChannel: parsed.data.urgentItemsChannel,
+        tasksOverdueChannel: parsed.data.tasksOverdueChannel,
         newMessagesChannel: parsed.data.newMessagesChannel,
       },
       update: {
@@ -143,6 +145,7 @@ export async function updateNotificationPreferencesAction(input: z.infer<typeof 
         upcomingEventsChannel: parsed.data.upcomingEventsChannel,
         rsvpMissingChannel: parsed.data.rsvpMissingChannel,
         urgentItemsChannel: parsed.data.urgentItemsChannel,
+        tasksOverdueChannel: parsed.data.tasksOverdueChannel,
         newMessagesChannel: parsed.data.newMessagesChannel,
       },
     });

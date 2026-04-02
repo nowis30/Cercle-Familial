@@ -13,6 +13,7 @@ import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
 import { SHARED_TASK_PRIORITY_LABELS, SHARED_TASK_STATUS_LABELS } from "@/lib/constants";
 import { formatEventDateTime, formatEventTime, getUtcRangeForEventMonth, toEventDateKey } from "@/lib/event-datetime";
+import { syncAppNotificationsForUser } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveTimeZone } from "@/lib/timezone";
 
@@ -76,7 +77,9 @@ export default async function TableauDeBordPage({
   const monthGridDates = getMonthGridDates(monthStart);
   const holidays = getHolidayEntriesForMonth(monthStart.getFullYear(), monthStart.getMonth());
 
-  const [upcomingEvents, monthEvents, birthdays, managedBirthdays, messages, urgentItems, myTasks, urgentSharedTasks, recentLists] = await Promise.all([
+  await syncAppNotificationsForUser(session.user.id);
+
+  const [upcomingEvents, monthEvents, birthdays, managedBirthdays, messages, urgentItems, myTasks, urgentSharedTasks, recentLists, unreadNotificationsCount, recentNotifications] = await Promise.all([
     prisma.event.findMany({
       where: {
         circleId: { in: circleIds },
@@ -174,6 +177,17 @@ export default async function TableauDeBordPage({
       },
       orderBy: { updatedAt: "desc" },
       take: 4,
+    }),
+    prisma.appNotification.count({
+      where: {
+        userId: session.user.id,
+        isRead: false,
+      },
+    }),
+    prisma.appNotification.findMany({
+      where: { userId: session.user.id },
+      orderBy: [{ isRead: "asc" }, { createdAt: "desc" }],
+      take: 3,
     }),
   ]);
 
@@ -336,6 +350,26 @@ export default async function TableauDeBordPage({
           ))}
         </DashboardSection>
       ) : null}
+      <DashboardSection title="Notifications" description="Rappels utiles a traiter rapidement.">
+        <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-zinc-900">Centre de notifications</p>
+            <Badge variant={unreadNotificationsCount > 0 ? "danger" : "secondary"}>{unreadNotificationsCount} non lue(s)</Badge>
+          </div>
+          <div className="mt-2 space-y-2">
+            {recentNotifications.length === 0 ? <p className="text-sm text-zinc-600">Aucun rappel pour le moment.</p> : null}
+            {recentNotifications.map((item) => (
+              <Link key={item.id} href={item.href ?? "/notifications"} className="block rounded-xl bg-white px-3 py-2 transition-colors hover:bg-sky-100/70">
+                <span className="block text-sm font-semibold text-zinc-900">{item.title}</span>
+                <span className="text-xs text-zinc-600">{item.message}</span>
+              </Link>
+            ))}
+          </div>
+          <Link href="/notifications" className="mt-2 inline-flex text-xs font-semibold text-sky-700 hover:underline">
+            Ouvrir le centre →
+          </Link>
+        </div>
+      </DashboardSection>
       <DashboardSection title="Mes taches et listes" description="Ce que tu peux regler rapidement aujourd'hui.">
         <div className="space-y-3">
           <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3">

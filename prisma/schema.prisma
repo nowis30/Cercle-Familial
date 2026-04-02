@@ -48,6 +48,15 @@ enum NotificationChannel {
   NONE
 }
 
+enum AppNotificationType {
+  BIRTHDAY_TOMORROW
+  EVENT_SOON
+  RSVP_MISSING
+  URGENT_ITEM
+  TASK_OVERDUE
+  NEW_MESSAGE
+}
+
 enum SharedListType {
   EPICERIE
   LISTE_LIBRE
@@ -124,6 +133,7 @@ model User {
   assignedSharedListItems SharedListItem[]      @relation("SharedListItemAssignee")
   createdSharedTasks SharedTask[]               @relation("SharedTaskCreator")
   assignedSharedTasks SharedTask[]              @relation("SharedTaskAssignee")
+  appNotifications  AppNotification[]
 }
 
 model Account {
@@ -557,10 +567,29 @@ model UserNotificationPreference {
   upcomingEventsChannel NotificationChannel @default(APP)
   rsvpMissingChannel    NotificationChannel @default(NONE)
   urgentItemsChannel    NotificationChannel @default(NONE)
+  tasksOverdueChannel   NotificationChannel @default(APP)
   newMessagesChannel    NotificationChannel @default(APP)
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppNotification {
+  id          String              @id @default(cuid())
+  userId      String
+  type        AppNotificationType
+  title       String
+  message     String
+  href        String?
+  triggerKey  String              @unique
+  isRead      Boolean             @default(false)
+  readAt      DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, type, createdAt])
 }
 
 model EventPhoto {

@@ -17,6 +17,7 @@ export const config = {
   matcher: [
     "/tableau-de-bord/:path*",
     "/cercles/:path*",
+    "/notifications/:path*",
     "/messages/:path*",
     "/profil/:path*",
     "/parametres/:path*",

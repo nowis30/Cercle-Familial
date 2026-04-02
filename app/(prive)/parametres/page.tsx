@@ -39,6 +39,12 @@ export default async function ParametresPage() {
         >
           Ouvrir l&apos;historique
         </Link>
+        <Link
+          href="/notifications"
+          className="mt-2 inline-flex h-10 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-4 text-sm font-semibold text-sky-700 hover:bg-sky-100"
+        >
+          Ouvrir le centre de notifications
+        </Link>
       </Card>
 
       <NotificationPreferencesForm
@@ -47,6 +53,7 @@ export default async function ParametresPage() {
           upcomingEventsChannel: prefs?.upcomingEventsChannel ?? "APP",
           rsvpMissingChannel: prefs?.rsvpMissingChannel ?? "NONE",
           urgentItemsChannel: prefs?.urgentItemsChannel ?? "NONE",
+          tasksOverdueChannel: prefs?.tasksOverdueChannel ?? "APP",
           newMessagesChannel: prefs?.newMessagesChannel ?? "APP",
           timezone: effectiveTimeZone,
         }}
