@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { EventCommentsPanel } from "@/components/events/event-comments-panel";
 import { EventContributionsPanel } from "@/components/events/event-contributions-panel";
 import { EventManagementActions } from "@/components/events/event-management-actions";
+import { EventMealsPanel } from "@/components/events/event-meals-panel";
 import { EventParticipantsPanel } from "@/components/events/event-participants-panel";
 import { EventPhotosPanel } from "@/components/events/event-photos-panel";
 import { AppShell } from "@/components/layout/app-shell";
@@ -67,6 +68,24 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
       photos: {
         orderBy: { createdAt: "desc" },
       },
+      meals: {
+        include: {
+          linkedList: {
+            select: {
+              id: true,
+              title: true,
+              circleId: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: [{ isPinned: "desc" }, { createdAt: "asc" }],
+      },
     },
   });
 
@@ -81,7 +100,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
   const myRsvp = event.attendances.find((attendance) => attendance.userId === session.user.id);
-  const [managedFamilyMembers, eventNotes] = await Promise.all([
+  const [managedFamilyMembers, eventNotes, listOptions] = await Promise.all([
     prisma.managedFamilyMember.findMany({
       where: { ownerUserId: session.user.id },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
@@ -101,6 +120,18 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
       },
       orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
       take: 100,
+    }),
+    prisma.sharedList.findMany({
+      where: {
+        circleId,
+        isArchived: false,
+      },
+      select: {
+        id: true,
+        title: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
     }),
   ]);
   const totalResponses = event.attendances.length;
@@ -204,6 +235,26 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
           })),
         }))}
       />
+      <Card>
+        <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Menus et repas</p>
+        <EventMealsPanel
+          circleId={circleId}
+          eventId={event.id}
+          canManage={canManageContributionItems}
+          meals={event.meals.map((meal) => ({
+            id: meal.id,
+            title: meal.title,
+            description: meal.description,
+            recipe: meal.recipe,
+            servedAtLabel: meal.servedAtLabel,
+            isPinned: meal.isPinned,
+            linkedListId: meal.linkedListId,
+            linkedListTitle: meal.linkedList?.title ?? null,
+            createdByName: meal.createdBy.name,
+          }))}
+          listOptions={listOptions}
+        />
+      </Card>
       <Card>
         <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Qui apporte quoi</p>
         <EventContributionsPanel

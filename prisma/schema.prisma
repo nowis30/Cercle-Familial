@@ -135,6 +135,7 @@ model User {
   assignedSharedTasks SharedTask[]              @relation("SharedTaskAssignee")
   appNotifications  AppNotification[]
   createdSharedNotes SharedNote[]               @relation("SharedNoteCreator")
+  createdEventMeals EventMeal[]
 }
 
 model Account {
@@ -289,6 +290,7 @@ model Event {
   comments         EventComment[]
   photos           EventPhoto[]
   sharedNotes      SharedNote[]
+  meals            EventMeal[]
 
   @@index([circleId, startsAt])
 }
@@ -435,6 +437,7 @@ model SharedList {
   circle      Circle         @relation(fields: [circleId], references: [id], onDelete: Cascade)
   createdBy   User           @relation("SharedListCreator", fields: [createdById], references: [id], onDelete: Cascade)
   items       SharedListItem[]
+  linkedMeals EventMeal[]
 
   @@index([circleId, isArchived])
   @@index([createdById, createdAt])
@@ -502,6 +505,26 @@ model SharedNote {
 
   @@index([circleId, eventId, isPinned, createdAt])
   @@index([createdById, createdAt])
+}
+
+model EventMeal {
+  id            String      @id @default(cuid())
+  eventId        String
+  createdById    String
+  linkedListId   String?
+  title          String
+  description    String?
+  recipe         String?
+  servedAtLabel  String?
+  isPinned       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  event          Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy      User        @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  linkedList     SharedList? @relation(fields: [linkedListId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, isPinned, createdAt])
+  @@index([linkedListId])
 }
 
 model DirectConversation {
