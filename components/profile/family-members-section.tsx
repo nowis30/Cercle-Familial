@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   createManagedFamilyMemberAction,
   deleteManagedFamilyMemberAction,
-  updateManagedFamilyMemberAction,
 } from "@/actions/profile";
 import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,6 @@ function toFormValues(member?: ManagedFamilyMemberView): FormValues {
 
 export function FamilyMembersSection({ initialMembers }: { initialMembers: ManagedFamilyMemberView[] }) {
   const router = useRouter();
-  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -58,16 +56,8 @@ export function FamilyMembersSection({ initialMembers }: { initialMembers: Manag
 
   function startCreate() {
     setIsCreateOpen(true);
-    setEditingMemberId(null);
     setFeedback("");
     setFormValues(toFormValues());
-  }
-
-  function startEdit(member: ManagedFamilyMemberView) {
-    setIsCreateOpen(true);
-    setEditingMemberId(member.id);
-    setFeedback("");
-    setFormValues(toFormValues(member));
   }
 
   return (
@@ -96,8 +86,12 @@ export function FamilyMembersSection({ initialMembers }: { initialMembers: Manag
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => startEdit(member)}>
-                  Modifier
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => router.push(`/profil/membre/${member.id}`)}
+                >
+                  Voir
                 </Button>
                 <ConfirmDestructiveDialog
                   confirmValue={fullName}
@@ -123,7 +117,7 @@ export function FamilyMembersSection({ initialMembers }: { initialMembers: Manag
 
       {isCreateOpen ? (
         <div className="space-y-3 rounded-2xl border border-indigo-100 bg-white p-3">
-          <p className="text-sm font-semibold text-zinc-900">{editingMemberId ? "Modifier la fiche" : "Nouvelle fiche famille"}</p>
+          <p className="text-sm font-semibold text-zinc-900">Nouvelle fiche famille</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Input
               placeholder="Prenom"
@@ -163,12 +157,7 @@ export function FamilyMembersSection({ initialMembers }: { initialMembers: Manag
                   relationLabel: formValues.relationLabel,
                 };
 
-                const result = editingMemberId
-                  ? await updateManagedFamilyMemberAction({
-                      memberId: editingMemberId,
-                      ...payload,
-                    })
-                  : await createManagedFamilyMemberAction(payload);
+                const result = await createManagedFamilyMemberAction(payload);
 
                 setIsSubmitting(false);
                 if (!result.success) {
@@ -176,20 +165,18 @@ export function FamilyMembersSection({ initialMembers }: { initialMembers: Manag
                   return;
                 }
 
-                setFeedback(editingMemberId ? "Membre mis a jour." : "Membre ajoute.");
+                setFeedback("Membre ajoute.");
                 setFormValues(toFormValues());
-                setEditingMemberId(null);
                 setIsCreateOpen(false);
                 router.refresh();
               }}
             >
-              {isSubmitting ? "Enregistrement..." : editingMemberId ? "Enregistrer la fiche" : "Créer ce membre"}
+              {isSubmitting ? "Enregistrement..." : "Créer ce membre"}
             </Button>
             <Button
               variant="secondary"
               onClick={() => {
                 setIsCreateOpen(false);
-                setEditingMemberId(null);
                 setFormValues(toFormValues());
               }}
             >

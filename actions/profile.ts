@@ -177,6 +177,12 @@ const managedFamilyMemberSchema = z.object({
   firstName: z.string().trim().min(2, "Prenom requis."),
   lastName: z.string().trim().max(80).optional(),
   relationLabel: z.string().trim().max(40).optional(),
+  birthDate: z.union([birthDateSchema, z.literal("")]).optional(),
+  phone: z.string().trim().max(30).optional(),
+  address: z.string().trim().max(200).optional(),
+  allergies: z.string().trim().max(400).optional(),
+  foodPreferences: z.string().trim().max(400).optional(),
+  giftIdeas: z.string().trim().max(400).optional(),
 });
 
 const updateManagedFamilyMemberSchema = managedFamilyMemberSchema.extend({
@@ -199,6 +205,7 @@ export async function createManagedFamilyMemberAction(input: z.infer<typeof mana
   }
 
   const data = parsed.data;
+  const birthDate = parseBirthDate(data.birthDate);
 
   const created = await prisma.$transaction(async (tx) => {
     const item = await tx.managedFamilyMember.create({
@@ -207,6 +214,12 @@ export async function createManagedFamilyMemberAction(input: z.infer<typeof mana
         firstName: data.firstName,
         lastName: data.lastName || null,
         relationLabel: data.relationLabel || null,
+        birthDate,
+        phone: data.phone || null,
+        address: data.address || null,
+        allergies: data.allergies || null,
+        foodPreferences: data.foodPreferences || null,
+        giftIdeas: data.giftIdeas || null,
       },
     });
 
@@ -250,13 +263,22 @@ export async function updateManagedFamilyMemberAction(input: z.infer<typeof upda
     return { success: false, message: "Acces refuse." };
   }
 
+  const data = parsed.data;
+  const birthDate = parseBirthDate(data.birthDate);
+
   await prisma.$transaction(async (tx) => {
     const updated = await tx.managedFamilyMember.update({
       where: { id: existing.id },
       data: {
-        firstName: parsed.data.firstName,
-        lastName: parsed.data.lastName || null,
-        relationLabel: parsed.data.relationLabel || null,
+        firstName: data.firstName,
+        lastName: data.lastName || null,
+        relationLabel: data.relationLabel || null,
+        birthDate,
+        phone: data.phone || null,
+        address: data.address || null,
+        allergies: data.allergies || null,
+        foodPreferences: data.foodPreferences || null,
+        giftIdeas: data.giftIdeas || null,
       },
     });
 
@@ -272,17 +294,30 @@ export async function updateManagedFamilyMemberAction(input: z.infer<typeof upda
           firstName: existing.firstName,
           lastName: existing.lastName,
           relationLabel: existing.relationLabel,
+          birthDate: existing.birthDate,
+          phone: existing.phone,
+          address: existing.address,
+          allergies: existing.allergies,
+          foodPreferences: existing.foodPreferences,
+          giftIdeas: existing.giftIdeas,
         },
         newValue: {
           firstName: updated.firstName,
           lastName: updated.lastName,
           relationLabel: updated.relationLabel,
+          birthDate,
+          phone: data.phone,
+          address: data.address,
+          allergies: data.allergies,
+          foodPreferences: data.foodPreferences,
+          giftIdeas: data.giftIdeas,
         },
       },
     });
   });
 
   revalidatePath("/profil");
+  revalidatePath(`/profil/membre/${existing.id}`);
   return { success: true, message: "Membre mis a jour." };
 }
 

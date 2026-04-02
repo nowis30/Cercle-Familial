@@ -290,6 +290,12 @@ model ManagedFamilyMember {
   firstName     String
   lastName      String?
   relationLabel String?
+  birthDate     DateTime?
+  phone         String?
+  address       String?
+  allergies     String?
+  foodPreferences String?
+  giftIdeas     String?
   createdAt     DateTime                     @default(now())
   updatedAt     DateTime                     @updatedAt
   owner         User                         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
