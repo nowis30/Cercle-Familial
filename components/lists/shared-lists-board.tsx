@@ -59,6 +59,8 @@ type SharedListsBoardProps = {
   members: MemberOption[];
   activeLists: SharedListView[];
   archivedLists: SharedListView[];
+  hideCreateSection?: boolean;
+  showDetailLinks?: boolean;
 };
 
 const listTypeLabels: Record<SharedListType, string> = {
@@ -92,7 +94,15 @@ type ListEditState = {
   type: SharedListType;
 };
 
-export function SharedListsBoard({ circleId, canCreateLists, members, activeLists, archivedLists }: SharedListsBoardProps) {
+export function SharedListsBoard({
+  circleId,
+  canCreateLists,
+  members,
+  activeLists,
+  archivedLists,
+  hideCreateSection = false,
+  showDetailLinks = false,
+}: SharedListsBoardProps) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -179,7 +189,8 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-3 bg-gradient-to-br from-white to-indigo-50/50">
+      {!hideCreateSection ? (
+        <Card className="space-y-3 bg-gradient-to-br from-white to-indigo-50/50">
         <CardTitle className="font-serif text-lg">Listes partagees</CardTitle>
         <CardDescription>
           Des listes simples pour l&apos;epicerie, les achats et la preparation des fetes.
@@ -227,7 +238,16 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
             {feedback.text}
           </p>
         ) : null}
-      </Card>
+        </Card>
+      ) : feedback ? (
+        <p
+          className={`rounded-xl px-3 py-2 text-xs font-semibold ${
+            feedback.tone === "success" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+          }`}
+        >
+          {feedback.text}
+        </p>
+      ) : null}
 
       {activeLists.length === 0 ? (
         <Card>
@@ -249,6 +269,12 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                 </div>
                 {list.note ? <p className="mt-2 text-sm text-zinc-700">{list.note}</p> : null}
               </div>
+              <div className="flex flex-wrap gap-2">
+              {showDetailLinks ? (
+                <Button size="sm" variant="ghost" onClick={() => router.push(`/cercles/${circleId}/listes/${list.id}`)}>
+                  Ouvrir
+                </Button>
+              ) : null}
               {list.canManage ? (
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -296,6 +322,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                   />
                 </div>
               ) : null}
+              </div>
             </div>
 
             {listEditing?.listId === list.id ? (

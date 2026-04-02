@@ -137,6 +137,7 @@ export default async function CircleSharedListsPage({ params }: { params: Promis
         }))}
         activeLists={activeLists}
         archivedLists={archivedLists}
+        showDetailLinks
       />
     </AppShell>
   );

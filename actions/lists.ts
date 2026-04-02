@@ -23,9 +23,12 @@ async function getMembership(circleId: string, userId: string) {
   });
 }
 
-function revalidateListPaths(circleId: string) {
+function revalidateListPaths(circleId: string, listId?: string) {
   revalidatePath(`/cercles/${circleId}`);
   revalidatePath(`/cercles/${circleId}/listes`);
+  if (listId) {
+    revalidatePath(`/cercles/${circleId}/listes/${listId}`);
+  }
   revalidatePath("/tableau-de-bord");
 }
 
@@ -114,7 +117,7 @@ export async function updateSharedListAction(input: z.infer<typeof updateSharedL
     },
   });
 
-  revalidateListPaths(list.circleId);
+  revalidateListPaths(list.circleId, list.id);
   return { success: true };
 }
 
@@ -160,7 +163,7 @@ export async function setSharedListArchivedAction(input: z.infer<typeof archiveS
     },
   });
 
-  revalidateListPaths(list.circleId);
+  revalidateListPaths(list.circleId, list.id);
   return { success: true };
 }
 
@@ -200,7 +203,7 @@ export async function deleteSharedListAction(input: z.infer<typeof deleteSharedL
 
   await prisma.sharedList.delete({ where: { id: list.id } });
 
-  revalidateListPaths(list.circleId);
+  revalidateListPaths(list.circleId, list.id);
   return { success: true };
 }
 
@@ -259,7 +262,7 @@ export async function createSharedListItemAction(input: z.infer<typeof createSha
     },
   });
 
-  revalidateListPaths(list.circleId);
+  revalidateListPaths(list.circleId, list.id);
   return { success: true };
 }
 
@@ -332,7 +335,7 @@ export async function updateSharedListItemAction(input: z.infer<typeof updateSha
     },
   });
 
-  revalidateListPaths(item.list.circleId);
+  revalidateListPaths(item.list.circleId, item.list.id);
   return { success: true };
 }
 
@@ -357,6 +360,7 @@ export async function toggleSharedListItemCheckedAction(input: z.infer<typeof to
     include: {
       list: {
         select: {
+          id: true,
           circleId: true,
           isArchived: true,
         },
@@ -382,7 +386,7 @@ export async function toggleSharedListItemCheckedAction(input: z.infer<typeof to
     },
   });
 
-  revalidateListPaths(item.list.circleId);
+  revalidateListPaths(item.list.circleId, item.list.id);
   return { success: true };
 }
 
@@ -435,6 +439,6 @@ export async function deleteSharedListItemAction(input: z.infer<typeof deleteSha
 
   await prisma.sharedListItem.delete({ where: { id: item.id } });
 
-  revalidateListPaths(item.list.circleId);
+  revalidateListPaths(item.list.circleId, item.list.id);
   return { success: true };
 }

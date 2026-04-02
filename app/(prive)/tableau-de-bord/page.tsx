@@ -390,7 +390,7 @@ export default async function TableauDeBordPage({
             <div className="mt-2 space-y-2">
               {recentLists.length === 0 ? <p className="text-sm text-zinc-600">Aucune liste recente.</p> : null}
               {recentLists.map((list) => (
-                <Link key={list.id} href={`/cercles/${list.circleId}/listes`} className="block rounded-xl bg-white px-3 py-2 transition-colors hover:bg-indigo-100/70">
+                <Link key={list.id} href={`/cercles/${list.circleId}/listes/${list.id}`} className="block rounded-xl bg-white px-3 py-2 transition-colors hover:bg-indigo-100/70">
                   <span className="block text-sm font-semibold text-zinc-900">{list.title}</span>
                   <span className="text-xs text-zinc-600">{list._count.items} item(s)</span>
                 </Link>
