@@ -3,30 +3,16 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ContributionStatus, EventType, HistoryActionType, HistoryObjectType, Prisma, RsvpResponse } from "@prisma/client";
+import { ContributionStatus, EventType, HistoryActionType, HistoryObjectType, RsvpResponse } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { safeCreateHistory } from "@/lib/action-history";
 import { canCreateEvent, canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { buildRsvpCounts, getUniqueLinkedMemberIds } from "@/lib/rsvp";
 import { createManagedFamilyMemberAction as createManagedFamilyMemberFromProfileAction } from "@/actions/profile";
-
-async function safeCreateHistory(
-  tx: Prisma.TransactionClient,
-  args: Parameters<typeof prisma.actionHistory.create>[0],
-) {
-  try {
-    await tx.actionHistory.create(args);
-  } catch (error) {
-    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
-    if (code === "P2021" || code === "P2022") {
-      console.warn("[history] Table/colonne historique indisponible, journalisation ignoree temporairement.", { code });
-      return;
-    }
-    throw error;
-  }
-}
 
 const createEventSchema = z.object({
   circleId: z.string().min(1),
@@ -441,7 +427,7 @@ export async function respondRsvpAction(input: z.infer<typeof rsvpSchema>) {
     return { success: false, message: "Acces refuse." };
   }
 
-  const uniqueLinkedMemberIds = Array.from(new Set(data.linkedMemberIds.filter(Boolean)));
+  const uniqueLinkedMemberIds = getUniqueLinkedMemberIds(data.linkedMemberIds);
   const allowedLinkedMembers = uniqueLinkedMemberIds.length
     ? await prisma.managedFamilyMember.findMany({
         where: {
@@ -453,11 +439,7 @@ export async function respondRsvpAction(input: z.infer<typeof rsvpSchema>) {
     : [];
   const validLinkedMemberIds = allowedLinkedMembers.map((member) => member.id);
 
-  const includeSelfForResponse = data.response === RsvpResponse.JE_NE_VIENS_PAS ? false : data.includeSelf;
-  const linkedCountForResponse = data.response === RsvpResponse.JE_NE_VIENS_PAS ? 0 : validLinkedMemberIds.length;
-  const adultsCount = includeSelfForResponse ? 1 : 0;
-  const childrenCount = linkedCountForResponse;
-  const totalCount = adultsCount + childrenCount;
+  const rsvpCounts = buildRsvpCounts(data.response, data.includeSelf, validLinkedMemberIds);
 
   await prisma.$transaction(async (tx) => {
     const attendance = await tx.eventAttendance.upsert({
@@ -471,17 +453,17 @@ export async function respondRsvpAction(input: z.infer<typeof rsvpSchema>) {
         eventId: data.eventId,
         userId: session.user.id,
         response: data.response,
-        adultsCount,
-        childrenCount,
-        totalCount,
+        adultsCount: rsvpCounts.adultsCount,
+        childrenCount: rsvpCounts.childrenCount,
+        totalCount: rsvpCounts.totalCount,
         guestsDisplayName: data.guestsDisplayName,
         note: data.note,
       },
       update: {
         response: data.response,
-        adultsCount,
-        childrenCount,
-        totalCount,
+        adultsCount: rsvpCounts.adultsCount,
+        childrenCount: rsvpCounts.childrenCount,
+        totalCount: rsvpCounts.totalCount,
         guestsDisplayName: data.guestsDisplayName,
         note: data.note,
       },
@@ -491,9 +473,9 @@ export async function respondRsvpAction(input: z.infer<typeof rsvpSchema>) {
       where: { attendanceId: attendance.id },
     });
 
-    if (validLinkedMemberIds.length > 0 && data.response !== RsvpResponse.JE_NE_VIENS_PAS) {
+    if (rsvpCounts.linkedMemberIds.length > 0) {
       await tx.eventAttendanceLinkedMember.createMany({
-        data: validLinkedMemberIds.map((managedMemberId) => ({
+        data: rsvpCounts.linkedMemberIds.map((managedMemberId) => ({
           attendanceId: attendance.id,
           managedMemberId,
         })),
@@ -512,14 +494,14 @@ export async function respondRsvpAction(input: z.infer<typeof rsvpSchema>) {
         eventId: event.id,
         details: {
           kind: "RSVP_UPDATE",
-          includeSelf: includeSelfForResponse,
-          linkedMemberCount: validLinkedMemberIds.length,
+          includeSelf: rsvpCounts.includeSelf,
+          linkedMemberCount: rsvpCounts.linkedMemberIds.length,
         },
         newValue: {
           response: data.response,
-          adultsCount,
-          childrenCount,
-          linkedMemberIds: validLinkedMemberIds,
+          adultsCount: rsvpCounts.adultsCount,
+          childrenCount: rsvpCounts.childrenCount,
+          linkedMemberIds: rsvpCounts.linkedMemberIds,
         },
       },
     });

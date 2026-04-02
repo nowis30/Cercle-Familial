@@ -4,6 +4,7 @@ import { CircleRole, HistoryActionType, HistoryObjectType, InvitePermission } fr
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { safeCreateHistory } from "@/lib/action-history";
 import { auth } from "@/lib/auth";
 import { canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -60,7 +61,7 @@ export async function createCircleAction(input: z.infer<typeof createCircleSchem
       },
     });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.CREATE,
         objectType: HistoryObjectType.CIRCLE,
@@ -151,7 +152,7 @@ export async function updateCircleAction(input: z.infer<typeof updateCircleSchem
       },
     });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.UPDATE,
         objectType: HistoryObjectType.CIRCLE,
@@ -223,7 +224,7 @@ export async function deleteCircleAction(input: z.infer<typeof deleteCircleSchem
   await prisma.$transaction(async (tx) => {
     await tx.circle.delete({ where: { id: circle.id } });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.DELETE,
         objectType: HistoryObjectType.CIRCLE,
@@ -304,7 +305,7 @@ export async function removeMemberAction(input: z.infer<typeof removeMemberSchem
       where: { circleId_userId: { circleId, userId: targetUserId } },
     });
 
-    await tx.actionHistory.create({
+    await safeCreateHistory(tx, {
       data: {
         actionType: HistoryActionType.DELETE,
         objectType: HistoryObjectType.MEMBER,

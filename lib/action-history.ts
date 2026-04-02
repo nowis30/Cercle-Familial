@@ -2,6 +2,9 @@ import { HistoryActionType, HistoryObjectType, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
+type HistoryWriter = Prisma.TransactionClient | typeof prisma;
+type CreateHistoryArgs = Parameters<typeof prisma.actionHistory.create>[0];
+
 type LogActionInput = {
   actionType: HistoryActionType;
   objectType: HistoryObjectType;
@@ -17,7 +20,7 @@ type LogActionInput = {
 };
 
 export async function logActionHistory(input: LogActionInput) {
-  await prisma.actionHistory.create({
+  await safeCreateHistory(prisma, {
     data: {
       actionType: input.actionType,
       objectType: input.objectType,
@@ -32,4 +35,24 @@ export async function logActionHistory(input: LogActionInput) {
       newValue: input.newValue,
     },
   });
+}
+
+export async function safeCreateHistory(writer: HistoryWriter, args: CreateHistoryArgs) {
+  try {
+    await writer.actionHistory.create(args);
+  } catch (error) {
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code?: string }).code)
+        : "";
+
+    if (code === "P2021" || code === "P2022") {
+      console.warn("[history] Table/colonne historique indisponible, journalisation ignoree temporairement.", {
+        code,
+      });
+      return;
+    }
+
+    throw error;
+  }
 }

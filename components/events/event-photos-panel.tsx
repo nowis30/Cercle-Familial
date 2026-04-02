@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 
 import { addEventPhotoAction, deleteEventPhotoAction } from "@/actions/events";
 import { PhotoGallery } from "@/components/events/photo-gallery";
+import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -126,19 +127,18 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
         {photos
           .filter((photo) => photo.canDelete)
           .map((photo) => (
-            <Button
+            <ConfirmDestructiveDialog
               key={photo.id}
-              size="sm"
-              variant="ghost"
-              className="text-rose-600 hover:bg-rose-50"
-              onClick={async () => {
-                if (!window.confirm("Supprimer cette photo ?")) return;
+              confirmValue={`PHOTO-${photo.id.slice(0, 6).toUpperCase()}`}
+              itemType="photo"
+              triggerLabel="Supprimer photo"
+              triggerVariant="ghost"
+              warningMessage="Cette photo sera supprimée définitivement de l'événement."
+              onConfirm={async () => {
                 await deleteEventPhotoAction({ photoId: photo.id });
                 router.refresh();
               }}
-            >
-              Supprimer photo
-            </Button>
+            />
           ))}
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { deleteCircleMessageAction, postCircleMessageAction } from "@/actions/circles";
 import { CircleChat } from "@/components/chat/circle-chat";
+import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -41,19 +42,18 @@ export function CircleDiscussionPanel({ circleId, messages }: { circleId: string
         {messages
           .filter((message) => message.canDelete)
           .map((message) => (
-            <Button
+            <ConfirmDestructiveDialog
               key={message.id}
-              size="sm"
-              variant="ghost"
-              className="text-rose-600 hover:bg-rose-50"
-              onClick={async () => {
-                if (!window.confirm("Supprimer ce message ?")) return;
+              confirmValue={`MESSAGE-${message.id.slice(0, 6).toUpperCase()}`}
+              itemType="message"
+              triggerLabel="Supprimer message"
+              triggerVariant="ghost"
+              warningMessage="Ce message sera supprimé définitivement de la discussion du cercle."
+              onConfirm={async () => {
                 await deleteCircleMessageAction({ messageId: message.id });
                 router.refresh();
               }}
-            >
-              Supprimer message
-            </Button>
+            />
           ))}
       </div>
     </div>

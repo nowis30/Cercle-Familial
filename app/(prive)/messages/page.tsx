@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { ConversationList } from "@/components/messages/conversation-list";
 import { NewConversationForm } from "@/components/messages/new-conversation-form";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -55,20 +54,20 @@ export default async function MessagesPage() {
 
       {conversations.length === 0 ? (
         <EmptyState title="Aucune conversation" description="Demarrez une conversation privee avec un membre de vos cercles." />
-      ) : null}
+      ) : (
+        <ConversationList
+          items={conversations.map((entry) => {
+            const other = entry.conversation.participants.find((participant) => participant.userId !== session.user.id);
+            const lastMessage = entry.conversation.messages[0];
 
-      {conversations.map((entry) => {
-        const other = entry.conversation.participants.find((participant) => participant.userId !== session.user.id);
-        const lastMessage = entry.conversation.messages[0];
-        return (
-          <Link key={entry.conversation.id} href={`/messages/${entry.conversation.id}`}>
-            <Card className="transition-shadow hover:shadow-[0_12px_22px_-18px_rgba(30,64,175,0.45)]">
-              <p className="font-semibold text-zinc-900">{other?.user.name ?? "Conversation"}</p>
-              <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{lastMessage?.content ?? "Aucun message"}</p>
-            </Card>
-          </Link>
-        );
-      })}
+            return {
+              id: entry.conversation.id,
+              name: other?.user.name ?? "Conversation",
+              lastMessage: lastMessage?.content ?? "Aucun message",
+            };
+          })}
+        />
+      )}
     </AppShell>
   );
 }

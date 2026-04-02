@@ -131,6 +131,14 @@ export default async function TableauDeBordPage({
         },
         status: { in: ["URGENT", "MANQUANT"] },
       },
+      include: {
+        event: {
+          select: {
+            circleId: true,
+            title: true,
+          },
+        },
+      },
       orderBy: { updatedAt: "desc" },
       take: 6,
     }),
@@ -222,6 +230,37 @@ export default async function TableauDeBordPage({
       circleId: event.circleId,
       missing: event.invites.length - event.attendances.length,
     }));
+
+  const myPendingRsvpTasks = upcomingEvents
+    .filter(
+      (event) =>
+        event.invites.some((invite) => invite.userId === session.user.id) &&
+        !event.attendances.some((attendance) => attendance.userId === session.user.id),
+    )
+    .slice(0, 3)
+    .map((event) => ({
+      id: event.id,
+      title: event.title,
+      href: `/cercles/${event.circleId}/evenements/${event.id}`,
+      dateLabel: formatEventDateTime(event.startsAt, effectiveTimeZone),
+    }));
+
+  const birthdaysSoon = upcomingBirthdays
+    .filter((item) => item.diffDays <= 7)
+    .slice(0, 3)
+    .map((item) => ({
+      id: item.id,
+      name: `${item.firstName} ${item.lastName}`.trim(),
+      diffDays: item.diffDays,
+    }));
+
+  const urgentItemsToReview = urgentItems.slice(0, 3).map((item) => ({
+    id: item.id,
+    name: item.name,
+    status: item.status,
+    href: `/cercles/${item.event.circleId}/evenements/${item.eventId}`,
+    eventTitle: item.event.title,
+  }));
 
   const urgentTaskCount = urgentItems.filter((item) => item.status === "URGENT").length;
   const missingItemCount = urgentItems.filter((item) => item.status === "MANQUANT").length;
@@ -372,21 +411,50 @@ export default async function TableauDeBordPage({
         </ul>
       </DashboardSection>
 
-      <DashboardSection title="Choses a faire" description="Priorites rapides pour garder le cercle a jour.">
-        <ul className="space-y-2 text-sm">
-          <li className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">RSVP manquants:</span> {rsvpMissingTasks.length} evenement(s) a relancer
-          </li>
-          <li className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Items urgents:</span> {urgentTaskCount}
-          </li>
-          <li className="rounded-2xl border border-rose-100 bg-rose-50/40 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Items manquants:</span> {missingItemCount}
-          </li>
-          <li className="rounded-2xl border border-pink-100 bg-pink-50/70 px-3 py-3">
-            <span className="font-semibold text-zinc-900">Anniversaires a souhaiter (7 jours):</span> {birthdaysSoonCount}
-          </li>
-        </ul>
+      <DashboardSection title="Mes priorites" description="Les actions les plus utiles pour toi cette semaine.">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">RSVP a faire</p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900">{myPendingRsvpTasks.length}</p>
+            <div className="mt-2 space-y-2 text-sm">
+              {myPendingRsvpTasks.length === 0 ? <p className="text-zinc-600">Tout est repondu.</p> : null}
+              {myPendingRsvpTasks.map((task) => (
+                <Link key={task.id} href={task.href} className="block rounded-xl bg-white px-3 py-2 text-zinc-700 transition-colors hover:bg-amber-100/70">
+                  <span className="block font-semibold text-zinc-900">{task.title}</span>
+                  <span className="text-xs text-zinc-600">{task.dateLabel}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-pink-100 bg-pink-50/70 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-pink-700">Anniversaires proches</p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900">{birthdaysSoonCount}</p>
+            <div className="mt-2 space-y-2 text-sm">
+              {birthdaysSoon.length === 0 ? <p className="text-zinc-600">Rien dans les 7 prochains jours.</p> : null}
+              {birthdaysSoon.map((item) => (
+                <div key={item.id} className="rounded-xl bg-white px-3 py-2 text-zinc-700">
+                  <span className="block font-semibold text-zinc-900">{item.name}</span>
+                  <span className="text-xs text-zinc-600">{item.diffDays === 0 ? "Aujourd'hui" : `Dans ${item.diffDays} jour(s)`}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Urgences du cercle</p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900">{urgentTaskCount + missingItemCount}</p>
+            <div className="mt-2 space-y-2 text-sm">
+              {urgentItemsToReview.length === 0 ? <p className="text-zinc-600">Aucun item a surveiller.</p> : null}
+              {urgentItemsToReview.map((item) => (
+                <Link key={item.id} href={item.href} className="block rounded-xl bg-white px-3 py-2 text-zinc-700 transition-colors hover:bg-rose-100/70">
+                  <span className="block font-semibold text-zinc-900">{item.name}</span>
+                  <span className="text-xs text-zinc-600">{item.eventTitle} · {item.status}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
       </DashboardSection>
 
     </AppShell>

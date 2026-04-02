@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, House, MessageCircle, User, Users } from "lucide-react";
+import { House, MessageCircle, Settings, User, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ const links = [
   { href: "/cercles", label: "Cercles", icon: Users },
   { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/profil", label: "Profil", icon: User },
-  { href: "/parametres", label: "Reglages", icon: CalendarDays },
+  { href: "/parametres", label: "Reglages", icon: Settings },
 ];
 
 export function BottomNavigation() {

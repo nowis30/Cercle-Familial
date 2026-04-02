@@ -1,27 +1,13 @@
 "use server";
 
-import { HistoryActionType, HistoryObjectType, NotificationChannel, Prisma } from "@prisma/client";
+import { HistoryActionType, HistoryObjectType, NotificationChannel } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { safeCreateHistory } from "@/lib/action-history";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAppDefaultTimeZone, isValidIanaTimeZone } from "@/lib/timezone";
-
-async function safeCreateHistory(
-  tx: Prisma.TransactionClient,
-  args: Parameters<typeof prisma.actionHistory.create>[0],
-) {
-  try {
-    await tx.actionHistory.create(args);
-  } catch (error) {
-    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
-    if (code === "P2021" || code === "P2022") {
-      return;
-    }
-    throw error;
-  }
-}
 
 function isValidDateInput(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);

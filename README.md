@@ -133,6 +133,26 @@ Garde-fous integres:
 - Role helpers (ADMIN, ADULTE, ENFANT)
 - Liens d'invitation de cercle avec expiration et max usages
 
+## Variables d'environnement auth
+
+Variables minimales recommandees:
+
+- `DATABASE_URL`
+- `NEXTAUTH_SECRET` (ou `AUTH_SECRET`)
+- `NEXTAUTH_URL` (ou `AUTH_URL`) en production
+
+Google OAuth:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+Regles appliquees par le code:
+
+- En production, l'application echoue au demarrage si `NEXTAUTH_SECRET`/`AUTH_SECRET` manque.
+- En production, l'application echoue au demarrage si `NEXTAUTH_URL`/`AUTH_URL` manque.
+- `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET` doivent etre definis ensemble.
+- Hors production, un fallback de secret reste autorise uniquement pour le developpement local.
+
 ## TODO V2
 
 - Geolocalisation en direct

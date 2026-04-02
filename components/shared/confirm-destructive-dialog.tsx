@@ -16,9 +16,35 @@ type ConfirmDestructiveDialogProps = {
   triggerLabel?: string;
   /** Variant du bouton déclencheur */
   triggerVariant?: "default" | "secondary" | "outline" | "ghost" | "destructive";
+  /** Classe CSS du bouton déclencheur */
+  triggerClassName?: string;
   /** Callback async exécuté à la confirmation */
   onConfirm: () => Promise<void> | void;
 };
+
+function getDeleteTitle(itemType: string) {
+  switch (itemType) {
+    case "cercle":
+      return "le cercle";
+    case "événement":
+    case "evenement":
+      return "l'événement";
+    case "membre":
+      return "le membre";
+    case "commentaire":
+      return "le commentaire";
+    case "message":
+      return "le message";
+    case "photo":
+      return "la photo";
+    case "item":
+      return "cet item";
+    case "fiche":
+      return "la fiche";
+    default:
+      return `ce ${itemType}`;
+  }
+}
 
 export function ConfirmDestructiveDialog({
   confirmValue,
@@ -26,6 +52,7 @@ export function ConfirmDestructiveDialog({
   warningMessage,
   triggerLabel = "Supprimer",
   triggerVariant = "destructive",
+  triggerClassName,
   onConfirm,
 }: ConfirmDestructiveDialogProps) {
   const [open, setOpen] = useState(false);
@@ -56,7 +83,7 @@ export function ConfirmDestructiveDialog({
 
   return (
     <div>
-      <Button variant={triggerVariant} onClick={() => setOpen(true)}>
+      <Button variant={triggerVariant} className={triggerClassName} onClick={() => setOpen(true)}>
         {triggerLabel}
       </Button>
 
@@ -76,7 +103,7 @@ export function ConfirmDestructiveDialog({
                 ⚠
               </span>
               <p className="text-base font-bold text-zinc-900">
-                Supprimer {itemType === "cercle" ? "le cercle" : itemType === "événement" ? "l'événement" : itemType === "membre" ? "le membre" : `ce ${itemType}`}
+                Supprimer {getDeleteTitle(itemType)}
               </p>
             </div>
 

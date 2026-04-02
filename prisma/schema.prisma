@@ -384,6 +384,7 @@ model ActionHistory {
 
 model DirectConversation {
   id            String                          @id @default(cuid())
+  pairKey       String?                         @unique
   createdAt     DateTime                        @default(now())
   updatedAt     DateTime                        @updatedAt
   participants  DirectConversationParticipant[]

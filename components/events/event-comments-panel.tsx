@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { deleteEventCommentAction, postEventCommentAction } from "@/actions/events";
 import { EventComments } from "@/components/chat/event-comments";
+import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -41,19 +42,18 @@ export function EventCommentsPanel({ eventId, comments }: { eventId: string; com
           {comments
             .filter((comment) => comment.canDelete)
             .map((comment) => (
-              <Button
+              <ConfirmDestructiveDialog
                 key={comment.id}
-                size="sm"
-                variant="ghost"
-                className="text-rose-600 hover:bg-rose-50"
-                onClick={async () => {
-                  if (!window.confirm("Supprimer ce commentaire ?")) return;
+                confirmValue={`COMMENTAIRE-${comment.id.slice(0, 6).toUpperCase()}`}
+                itemType="commentaire"
+                triggerLabel={`Supprimer commentaire: ${comment.author}`}
+                triggerVariant="ghost"
+                warningMessage="Ce commentaire sera supprimé définitivement."
+                onConfirm={async () => {
                   await deleteEventCommentAction({ commentId: comment.id });
                   router.refresh();
                 }}
-              >
-                Supprimer commentaire: {comment.author}
-              </Button>
+              />
             ))}
         </div>
       ) : null}

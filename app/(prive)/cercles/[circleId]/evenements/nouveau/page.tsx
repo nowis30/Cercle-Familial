@@ -4,6 +4,7 @@ import { CreateEventForm } from "@/components/events/create-event-form";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
+import { toEventDateTimeLocalValue } from "@/lib/event-datetime";
 import { canCreateEvent } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveTimeZone } from "@/lib/timezone";
@@ -13,10 +14,10 @@ export default async function NouvelEvenementPage({
   searchParams,
 }: {
   params: Promise<{ circleId: string }>;
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; duplicateFrom?: string }>;
 }) {
   const { circleId } = await params;
-  const { date } = await searchParams;
+  const { date, duplicateFrom } = await searchParams;
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/connexion");
@@ -43,6 +44,18 @@ export default async function NouvelEvenementPage({
 
   const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
+  const duplicatedEvent = duplicateFrom
+    ? await prisma.event.findFirst({
+        where: {
+          id: duplicateFrom,
+          circleId,
+        },
+        include: {
+          invites: true,
+        },
+      })
+    : null;
+
   const members = await prisma.circleMembership.findMany({
     where: { circleId },
     include: { user: true },
@@ -54,13 +67,34 @@ export default async function NouvelEvenementPage({
   return (
     <AppShell title="Nouvel evenement">
       <Card className="bg-gradient-to-br from-white to-amber-50/60">
-        <p className="font-serif text-lg font-bold text-zinc-900">Organiser un nouvel evenement</p>
-        <p className="mt-1 text-sm text-zinc-600">Creez un rendez-vous clair avec invites, lieu, date et details utiles.</p>
+        <p className="font-serif text-lg font-bold text-zinc-900">
+          {duplicatedEvent ? "Dupliquer un evenement" : "Organiser un nouvel evenement"}
+        </p>
+        <p className="mt-1 text-sm text-zinc-600">
+          {duplicatedEvent
+            ? "Reutilisez un evenement existant comme base, puis ajustez les details avant publication."
+            : "Creez un rendez-vous clair avec invites, lieu, date et details utiles."}
+        </p>
       </Card>
       <CreateEventForm
         circleId={circleId}
         initialStartsAt={initialStartsAt}
         effectiveTimeZone={effectiveTimeZone}
+        initialValues={
+          duplicatedEvent
+            ? {
+                circleId,
+                title: `${duplicatedEvent.title} (copie)`,
+                type: duplicatedEvent.type,
+                startsAt: toEventDateTimeLocalValue(duplicatedEvent.startsAt, effectiveTimeZone),
+                endsAt: toEventDateTimeLocalValue(duplicatedEvent.endsAt, effectiveTimeZone),
+                locationName: duplicatedEvent.locationName,
+                address: duplicatedEvent.address ?? "",
+                description: duplicatedEvent.description ?? "",
+                invitedUserIds: duplicatedEvent.invites.map((invite) => invite.userId),
+              }
+            : undefined
+        }
         members={members.map((member) => ({
           id: member.userId,
           name: member.user.name,

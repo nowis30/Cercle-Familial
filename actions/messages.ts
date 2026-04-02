@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { buildDirectConversationPairKey } from "@/lib/direct-conversation";
 import { prisma } from "@/lib/prisma";
 
 const openConversationSchema = z.object({
@@ -41,6 +42,17 @@ export async function openOrCreateConversationAction(input: z.infer<typeof openC
     return { success: false, message: "Vous ne pouvez contacter que des membres de vos cercles." };
   }
 
+  const pairKey = buildDirectConversationPairKey(session.user.id, parsed.data.targetUserId);
+
+  const conversationByPairKey = await prisma.directConversation.findUnique({
+    where: { pairKey },
+    select: { id: true },
+  });
+
+  if (conversationByPairKey) {
+    return { success: true, conversationId: conversationByPairKey.id };
+  }
+
   const existingParticipantEntries = await prisma.directConversationParticipant.findMany({
     where: { userId: session.user.id },
     include: {
@@ -60,11 +72,17 @@ export async function openOrCreateConversationAction(input: z.infer<typeof openC
   });
 
   if (existing) {
+    await prisma.directConversation.update({
+      where: { id: existing.conversationId },
+      data: { pairKey },
+    });
+
     return { success: true, conversationId: existing.conversationId };
   }
 
   const conversation = await prisma.directConversation.create({
     data: {
+      pairKey,
       participants: {
         createMany: {
           data: [{ userId: session.user.id }, { userId: parsed.data.targetUserId }],

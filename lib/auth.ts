@@ -8,7 +8,17 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { z } from "zod";
 
+import { resolveAuthConfiguration } from "@/lib/auth-config";
 import { prisma } from "@/lib/prisma";
+const authConfiguration = resolveAuthConfiguration(process.env);
+
+if (authConfiguration.normalizedAuthUrl) {
+  process.env.NEXTAUTH_URL = authConfiguration.normalizedAuthUrl;
+}
+
+for (const warning of authConfiguration.warnings) {
+  console.warn(warning);
+}
 
 const loginSchema = z.object({
   email: z.email("Courriel invalide"),
@@ -58,18 +68,17 @@ const providers: NextAuthOptions["providers"] = [
   }),
 ];
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (authConfiguration.hasGoogleProviderConfig) {
   providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: authConfiguration.googleClientId!,
+      clientSecret: authConfiguration.googleClientSecret!,
     }),
   );
 }
 
 const authSecret =
-  process.env.NEXTAUTH_SECRET ??
-  process.env.AUTH_SECRET ??
+  authConfiguration.authSecret ??
   (process.env.DATABASE_URL
     ? createHash("sha256").update(process.env.DATABASE_URL).digest("hex")
     : "cercle-familial-fallback-secret");

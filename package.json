@@ -8,6 +8,8 @@
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint .",
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:watch": "tsx --test --watch tests/**/*.test.ts",
     "format": "prettier --write .",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "node scripts/guard-prisma-command.mjs migrate-dev && prisma migrate dev",

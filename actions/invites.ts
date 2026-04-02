@@ -6,6 +6,7 @@ import { CircleRole, HistoryActionType, HistoryObjectType } from "@prisma/client
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { safeCreateHistory } from "@/lib/action-history";
 import { auth } from "@/lib/auth";
 import { canInviteMembers } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -116,7 +117,7 @@ export async function joinCircleWithTokenAction(input: z.infer<typeof joinSchema
         data: { usedCount: { increment: 1 } },
       });
 
-      await tx.actionHistory.create({
+      await safeCreateHistory(tx, {
         data: {
           actionType: HistoryActionType.CREATE,
           objectType: HistoryObjectType.MEMBER,
