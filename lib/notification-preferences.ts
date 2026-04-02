@@ -11,18 +11,37 @@ export type NotificationPreferenceValues = {
   newMessagesChannel: NotificationChannel;
 };
 
-function isMissingTasksOverdueColumnError(error: unknown) {
-  const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
-  const column =
-    typeof error === "object" && error !== null && "meta" in error
-      ? String((error as { meta?: { column?: string } }).meta?.column ?? "")
-      : "";
-  const modelName =
-    typeof error === "object" && error !== null && "meta" in error
-      ? String((error as { meta?: { modelName?: string } }).meta?.modelName ?? "")
-      : "";
+type NotificationPreferenceRow = {
+  birthdaysChannel: NotificationChannel;
+  upcomingEventsChannel: NotificationChannel;
+  rsvpMissingChannel: NotificationChannel;
+  urgentItemsChannel: NotificationChannel;
+  newMessagesChannel: NotificationChannel;
+};
 
-  return code === "P2022" && (column.includes("tasksOverdueChannel") || modelName === "UserNotificationPreference");
+let hasTasksOverdueChannelPromise: Promise<boolean> | null = null;
+
+async function hasTasksOverdueChannel(writer: typeof prisma | Prisma.TransactionClient) {
+  if (writer === prisma) {
+    hasTasksOverdueChannelPromise ??= readHasTasksOverdueChannel(prisma);
+    return hasTasksOverdueChannelPromise;
+  }
+
+  return readHasTasksOverdueChannel(writer);
+}
+
+async function readHasTasksOverdueChannel(writer: typeof prisma | Prisma.TransactionClient) {
+  const rows = await writer.$queryRaw<Array<{ exists: boolean }>>(Prisma.sql`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'UserNotificationPreference'
+        AND column_name = 'tasksOverdueChannel'
+    ) AS "exists"
+  `);
+
+  return Boolean(rows[0]?.exists);
 }
 
 export function withNotificationPreferenceDefaults(prefs: Partial<NotificationPreferenceValues> | null): NotificationPreferenceValues {
@@ -37,18 +56,33 @@ export function withNotificationPreferenceDefaults(prefs: Partial<NotificationPr
 }
 
 export async function getNotificationPreferencesSafe(userId: string) {
-  try {
+  if (await hasTasksOverdueChannel(prisma)) {
     return await prisma.userNotificationPreference.findUnique({
       where: { userId },
     });
-  } catch (error) {
-    if (isMissingTasksOverdueColumnError(error)) {
-      console.warn("[notifications] Colonne tasksOverdueChannel absente, fallback temporaire active.");
-      return null;
-    }
-
-    throw error;
   }
+
+  const rows = await prisma.$queryRaw<NotificationPreferenceRow[]>(Prisma.sql`
+    SELECT
+      "birthdaysChannel",
+      "upcomingEventsChannel",
+      "rsvpMissingChannel",
+      "urgentItemsChannel",
+      "newMessagesChannel"
+    FROM "UserNotificationPreference"
+    WHERE "userId" = ${userId}
+    LIMIT 1
+  `);
+
+  const prefs = rows[0];
+  if (!prefs) {
+    return null;
+  }
+
+  return {
+    ...prefs,
+    tasksOverdueChannel: NotificationChannel.APP,
+  };
 }
 
 export async function upsertNotificationPreferencesSafe(
@@ -58,29 +92,7 @@ export async function upsertNotificationPreferencesSafe(
     values: NotificationPreferenceValues;
   },
 ) {
-  const dataWithTaskChannel = {
-    birthdaysChannel: input.values.birthdaysChannel,
-    upcomingEventsChannel: input.values.upcomingEventsChannel,
-    rsvpMissingChannel: input.values.rsvpMissingChannel,
-    urgentItemsChannel: input.values.urgentItemsChannel,
-    tasksOverdueChannel: input.values.tasksOverdueChannel,
-    newMessagesChannel: input.values.newMessagesChannel,
-  };
-
-  try {
-    await tx.userNotificationPreference.upsert({
-      where: { userId: input.userId },
-      create: {
-        userId: input.userId,
-        ...dataWithTaskChannel,
-      },
-      update: dataWithTaskChannel,
-    });
-  } catch (error) {
-    if (!isMissingTasksOverdueColumnError(error)) {
-      throw error;
-    }
-
+  if (!(await hasTasksOverdueChannel(tx))) {
     const dataWithoutTaskChannel = {
       birthdaysChannel: input.values.birthdaysChannel,
       upcomingEventsChannel: input.values.upcomingEventsChannel,
@@ -97,5 +109,25 @@ export async function upsertNotificationPreferencesSafe(
       },
       update: dataWithoutTaskChannel,
     });
+
+    return;
   }
+
+  const dataWithTaskChannel = {
+    birthdaysChannel: input.values.birthdaysChannel,
+    upcomingEventsChannel: input.values.upcomingEventsChannel,
+    rsvpMissingChannel: input.values.rsvpMissingChannel,
+    urgentItemsChannel: input.values.urgentItemsChannel,
+    tasksOverdueChannel: input.values.tasksOverdueChannel,
+    newMessagesChannel: input.values.newMessagesChannel,
+  };
+
+  await tx.userNotificationPreference.upsert({
+    where: { userId: input.userId },
+    create: {
+      userId: input.userId,
+      ...dataWithTaskChannel,
+    },
+    update: dataWithTaskChannel,
+  });
 }
