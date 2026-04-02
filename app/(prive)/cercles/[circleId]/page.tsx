@@ -70,6 +70,9 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
         <Link href={`/cercles/${circleId}/calendrier`} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 font-semibold text-indigo-800 transition-colors hover:bg-indigo-100">
           Calendrier
         </Link>
+        <Link href={`/cercles/${circleId}/listes`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
+          Listes partagees
+        </Link>
         <Link href={`/cercles/${circleId}/membres`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
           Membres
         </Link>

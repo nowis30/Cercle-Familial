@@ -48,6 +48,13 @@ enum NotificationChannel {
   NONE
 }
 
+enum SharedListType {
+  EPICERIE
+  LISTE_LIBRE
+  PREPARATION_FETE
+  ACHATS_CADEAUX
+}
+
 enum FamilyRelationType {
   PARENT_DE
   ENFANT_DE
@@ -99,6 +106,10 @@ model User {
   responsibleForProfiles PersonProfile[]        @relation("ResponsibleParent")
   managedFamilyMembers ManagedFamilyMember[]
   createdInvites   CircleInvite[]               @relation("CircleInviteCreator")
+  createdSharedLists SharedList[]               @relation("SharedListCreator")
+  createdSharedListItems SharedListItem[]       @relation("SharedListItemCreator")
+  checkedSharedListItems SharedListItem[]       @relation("SharedListItemChecker")
+  assignedSharedListItems SharedListItem[]      @relation("SharedListItemAssignee")
 }
 
 model Account {
@@ -154,6 +165,7 @@ model Circle {
   events             Event[]
   messages           CircleMessage[]
   giftExchanges      GiftExchange[]
+  sharedLists        SharedList[]
 
   @@index([slug])
 }
@@ -380,6 +392,47 @@ model ActionHistory {
   @@index([circleId, createdAt])
   @@index([eventId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+model SharedList {
+  id          String         @id @default(cuid())
+  circleId    String
+  createdById String
+  title       String
+  type        SharedListType @default(LISTE_LIBRE)
+  note        String?
+  isArchived  Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  circle      Circle         @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation("SharedListCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  items       SharedListItem[]
+
+  @@index([circleId, isArchived])
+  @@index([createdById, createdAt])
+}
+
+model SharedListItem {
+  id            String     @id @default(cuid())
+  listId         String
+  createdById    String
+  checkedById    String?
+  assigneeUserId String?
+  label          String
+  comment        String?
+  position       Int        @default(0)
+  isChecked      Boolean    @default(false)
+  checkedAt      DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  list           SharedList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  createdBy      User       @relation("SharedListItemCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  checkedBy      User?      @relation("SharedListItemChecker", fields: [checkedById], references: [id], onDelete: SetNull)
+  assignee       User?      @relation("SharedListItemAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+
+  @@index([listId, position])
+  @@index([listId, isChecked])
+  @@index([assigneeUserId])
 }
 
 model DirectConversation {
