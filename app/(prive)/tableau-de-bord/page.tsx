@@ -200,6 +200,15 @@ export default async function TableauDeBordPage({
   }
 
   const now = new Date();
+
+  const todaysEvents = upcomingEvents.filter((event) => isToday(new Date(event.startsAt)));
+
+  const todaysBirthdays = allBirthdays.filter((profile) => {
+    if (!profile.birthDate) return false;
+    const bd = new Date(profile.birthDate);
+    return bd.getMonth() === now.getMonth() && bd.getDate() === now.getDate();
+  });
+
   const upcomingBirthdays = allBirthdays
     .map((profile) => {
       if (!profile.birthDate) return null;
@@ -267,7 +276,32 @@ export default async function TableauDeBordPage({
   const birthdaysSoonCount = upcomingBirthdays.filter((item) => item.diffDays <= 7).length;
 
   return (
-    <AppShell title="Tableau de bord">
+    <AppShell title="Tableau de bord">      {(todaysEvents.length > 0 || todaysBirthdays.length > 0) ? (
+        <DashboardSection title="Aujourd\u2019hui">
+          {todaysEvents.map((event) => (
+            <Link
+              key={event.id}
+              href={`/cercles/${event.circleId}/evenements/${event.id}`}
+              className="block rounded-2xl border border-indigo-200 bg-indigo-50/60 px-3 py-3 transition-colors hover:bg-indigo-100/70"
+            >
+              <p className="text-sm font-bold text-indigo-900">{event.title}</p>
+              <p className="mt-0.5 text-xs text-indigo-700">{formatEventDateTime(event.startsAt, effectiveTimeZone)} \u00b7 {event.locationName}</p>
+            </Link>
+          ))}
+          {todaysBirthdays.map((birthday) => (
+            <div key={birthday.id} className="rounded-2xl border border-pink-200 bg-pink-50/60 px-3 py-3">
+              <p className="text-sm font-bold text-pink-900">
+                \uD83C\uDF82 Anniversaire de {birthday.firstName} {birthday.lastName}
+              </p>
+              {birthday.birthDate ? (
+                <p className="mt-0.5 text-xs text-pink-700">
+                  {new Date().getFullYear() - new Date(birthday.birthDate).getFullYear()} ans
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </DashboardSection>
+      ) : null}
       <DashboardSection title={`Calendrier mensuel - ${monthLabel}`} description="Vue rapide des evenements et anniversaires de ce mois.">
         <div className="mb-3">
           <CircleSwitcher

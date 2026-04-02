@@ -40,18 +40,22 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
   });
   const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
-  const events = await prisma.event.findMany({
-    where: { circleId },
-    orderBy: { startsAt: "asc" },
-    take: 8,
-  });
-
-  const messages = await prisma.circleMessage.findMany({
-    where: { circleId },
-    orderBy: { createdAt: "desc" },
-    include: { author: true },
-    take: 12,
-  });
+  const [events, messages, activeListsCount] = await Promise.all([
+    prisma.event.findMany({
+      where: { circleId, startsAt: { gte: new Date() } },
+      orderBy: { startsAt: "asc" },
+      take: 8,
+    }),
+    prisma.circleMessage.findMany({
+      where: { circleId },
+      orderBy: { createdAt: "desc" },
+      include: { author: true },
+      take: 12,
+    }),
+    prisma.sharedList.count({
+      where: { circleId, isArchived: false },
+    }),
+  ]);
 
   return (
     <AppShell title={membership.circle.name}>
@@ -71,7 +75,7 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
           Calendrier
         </Link>
         <Link href={`/cercles/${circleId}/listes`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
-          Listes partagees
+          Listes partagees{activeListsCount > 0 ? ` \u00b7 ${activeListsCount}` : ""}
         </Link>
         <Link href={`/cercles/${circleId}/membres`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
           Membres
@@ -86,9 +90,14 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
       <CreateInviteForm circleId={circleId} />
 
       <Card>
-        <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Evenements recents</p>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="font-serif text-lg font-bold text-zinc-900">Prochains événements</p>
+          <Link href={`/cercles/${circleId}/calendrier`} className="text-xs font-semibold text-indigo-600 hover:underline">
+            Voir le calendrier →
+          </Link>
+        </div>
         <div className="space-y-2">
-          {events.length === 0 ? <p className="rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-600">Aucun evenement pour le moment.</p> : null}
+          {events.length === 0 ? <p className="rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-600">Aucun evenement a venir.</p> : null}
           {events.map((event) => (
             <EventCard
               key={event.id}

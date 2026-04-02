@@ -89,6 +89,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   const totalAdults = event.attendances.reduce((sum, attendance) => sum + attendance.adultsCount, 0);
   const totalChildren = event.attendances.reduce((sum, attendance) => sum + attendance.childrenCount, 0);
   const missingResponses = Math.max(0, event.invites.length - totalResponses);
+  const isInvited = event.invites.some((invite) => invite.userId === session.user.id);
   const myRsvpVariant = myRsvp?.response === "JE_VIENS" ? "default" : myRsvp?.response === "PEUT_ETRE" ? "warning" : "danger";
   const startsAtLabel = formatEventDateTime(event.startsAt, effectiveTimeZone);
   const endsAtLabel = event.endsAt ? formatEventDateTime(event.endsAt, effectiveTimeZone) : null;
@@ -108,6 +109,15 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
 
   return (
     <AppShell title={event.title}>
+      {isInvited && !myRsvp ? (
+        <a
+          href="#participants"
+          className="block rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+        >
+          ⚠\uFE0F Tu n&apos;as pas encore repondu a cette invitation.{" "}
+          <span className="underline">Repondre maintenant \u2193</span>
+        </a>
+      ) : null}
       <Card className="bg-gradient-to-br from-white to-indigo-50/50">
         <p className="text-sm font-semibold text-indigo-700">Debut: {startsAtLabel}</p>
         <p className="mt-1 text-sm text-indigo-700">Fin: {endsAtLabel ?? "Non definie"}</p>
