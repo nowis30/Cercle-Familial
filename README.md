@@ -91,9 +91,40 @@ Compte demo credentials:
 - npm run dev
 - npm run lint
 - npm run prisma:generate
-- npm run prisma:push
+- npm run prisma:migrate:dev
+- npm run prisma:migrate:deploy
+- npm run prisma:migrate:status
+- npm run prisma:migrate:reset
+- npm run prisma:push (exception locale uniquement, avec garde-fou)
 - npm run db:seed
 - npm run build
+
+## Workflow Prisma versionne
+
+Regle principale:
+
+- Utiliser des migrations versionnees (`prisma migrate`) pour toute evolution de schema.
+- Eviter `prisma db push` sauf cas exceptionnel local.
+
+Workflow dev (schema change):
+
+1. Modifier `prisma/schema.prisma`.
+2. Lancer `npm run prisma:migrate:dev -- --name <nom_migration>`.
+3. Verifier `npm run prisma:migrate:status`.
+4. Committer `prisma/schema.prisma` + `prisma/migrations/**`.
+
+Workflow production:
+
+1. Deployer le code (avec les migrations versionnees committees).
+2. Executer `npm run prisma:migrate:deploy`.
+3. Verifier l'etat avec `npm run prisma:migrate:status`.
+
+Garde-fous integres:
+
+- `npm run prisma:migrate:dev` bloque en CI/prod.
+- `npm run prisma:migrate:reset` bloque par defaut (autoriser seulement localement via `ALLOW_PRISMA_RESET=1`).
+- `npm run prisma:push` bloque par defaut (autoriser seulement localement via `ALLOW_PRISMA_DB_PUSH=1`).
+- En production, ne pas utiliser `prisma migrate reset` ni `prisma db push`.
 
 ## Securite V1
 
@@ -149,7 +180,7 @@ Limites connues V1:
 ## Comment tester rapidement
 
 1. Configurer `.env` depuis `.env.example`.
-2. Lancer `npm run prisma:generate` puis `npm run prisma:push`.
+2. Lancer `npm run prisma:generate` puis `npm run prisma:migrate:dev -- --name init_local` (premier setup local).
 3. Charger les donnees de test: `npm run db:seed`.
 4. Demarrer l'app: `npm run dev`.
 5. Suivre la checklist: `docs/checklist-fonctionnelle-v1.md`.
