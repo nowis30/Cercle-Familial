@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { EventCommentsPanel } from "@/components/events/event-comments-panel";
 import { EventContributionsPanel } from "@/components/events/event-contributions-panel";
+import { EventBudgetPanel } from "@/components/events/event-budget-panel";
 import { EventManagementActions } from "@/components/events/event-management-actions";
 import { EventMealsPanel } from "@/components/events/event-meals-panel";
 import { EventParticipantsPanel } from "@/components/events/event-participants-panel";
@@ -67,6 +68,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
       },
       photos: {
         orderBy: { createdAt: "desc" },
+      },
+      budgetItems: {
+        orderBy: { createdAt: "asc" },
       },
       meals: {
         include: {
@@ -267,6 +271,21 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
             note: item.note,
             status: item.status,
             reservedByName: item.reservedBy?.name,
+          }))}
+        />
+      </Card>
+      <Card>
+        <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Budget simple</p>
+        <EventBudgetPanel
+          eventId={event.id}
+          canManage={canManageContributionItems}
+          items={event.budgetItems.map((item) => ({
+            id: item.id,
+            label: item.label,
+            plannedAmount: item.plannedAmount?.toString() ?? null,
+            actualAmount: item.actualAmount?.toString() ?? null,
+            paidByName: item.paidByName,
+            note: item.note,
           }))}
         />
       </Card>

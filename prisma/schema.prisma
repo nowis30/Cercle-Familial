@@ -291,6 +291,7 @@ model Event {
   photos           EventPhoto[]
   sharedNotes      SharedNote[]
   meals            EventMeal[]
+  budgetItems      EventBudgetItem[]
 
   @@index([circleId, startsAt])
 }
@@ -525,6 +526,21 @@ model EventMeal {
 
   @@index([eventId, isPinned, createdAt])
   @@index([linkedListId])
+}
+
+model EventBudgetItem {
+  id             String   @id @default(cuid())
+  eventId        String
+  label          String
+  plannedAmount  Decimal? @db.Decimal(10, 2)
+  actualAmount   Decimal? @db.Decimal(10, 2)
+  paidByName     String?
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
 }
 
 model DirectConversation {
