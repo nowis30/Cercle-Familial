@@ -26,6 +26,7 @@ async function getMembership(circleId: string, userId: string) {
 function revalidateListPaths(circleId: string) {
   revalidatePath(`/cercles/${circleId}`);
   revalidatePath(`/cercles/${circleId}/listes`);
+  revalidatePath("/tableau-de-bord");
 }
 
 const createSharedListSchema = z.object({
@@ -206,6 +207,7 @@ export async function deleteSharedListAction(input: z.infer<typeof deleteSharedL
 const createSharedListItemSchema = z.object({
   listId: z.string().min(1),
   label: z.string().trim().min(1, "Libelle requis."),
+  quantity: z.number().int().min(1).max(99).default(1),
   comment: z.string().trim().max(300).optional(),
   assigneeUserId: z.string().min(1).optional(),
 });
@@ -250,6 +252,7 @@ export async function createSharedListItemAction(input: z.infer<typeof createSha
       listId: list.id,
       createdById: session.user.id,
       label: parsed.data.label,
+      quantity: parsed.data.quantity,
       comment: parsed.data.comment || null,
       assigneeUserId,
       position,
@@ -263,6 +266,7 @@ export async function createSharedListItemAction(input: z.infer<typeof createSha
 const updateSharedListItemSchema = z.object({
   itemId: z.string().min(1),
   label: z.string().trim().min(1, "Libelle requis."),
+  quantity: z.number().int().min(1).max(99).default(1),
   comment: z.string().trim().max(300).optional(),
   assigneeUserId: z.string().optional(),
 });
@@ -322,6 +326,7 @@ export async function updateSharedListItemAction(input: z.infer<typeof updateSha
     where: { id: item.id },
     data: {
       label: parsed.data.label,
+      quantity: parsed.data.quantity,
       comment: parsed.data.comment || null,
       assigneeUserId,
     },

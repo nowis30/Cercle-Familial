@@ -17,6 +17,18 @@ export const RSVP_LABELS: Record<string, string> = {
   PEUT_ETRE: "Peut-etre",
 };
 
+export const SHARED_TASK_STATUS_LABELS: Record<string, string> = {
+  A_FAIRE: "A faire",
+  EN_COURS: "En cours",
+  TERMINE: "Termine",
+};
+
+export const SHARED_TASK_PRIORITY_LABELS: Record<string, string> = {
+  NORMALE: "Normale",
+  IMPORTANTE: "Importante",
+  URGENTE: "Urgente",
+};
+
 export const PRIVATE_PATHS = [
   "/tableau-de-bord",
   "/cercles",

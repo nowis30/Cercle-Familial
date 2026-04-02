@@ -31,6 +31,7 @@ type MemberOption = {
 type SharedListItemView = {
   id: string;
   label: string;
+  quantity: number;
   comment: string | null;
   isChecked: boolean;
   createdById: string;
@@ -67,8 +68,11 @@ const listTypeLabels: Record<SharedListType, string> = {
   ACHATS_CADEAUX: "Achats cadeaux",
 };
 
+const sharedListTypes = Object.values(SharedListType) as SharedListType[];
+
 type ItemDraft = {
   label: string;
+  quantity: string;
   comment: string;
   assigneeUserId: string;
 };
@@ -76,6 +80,7 @@ type ItemDraft = {
 type ItemEditState = {
   itemId: string;
   label: string;
+  quantity: string;
   comment: string;
   assigneeUserId: string;
 };
@@ -149,11 +154,12 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
   }
 
   async function onCreateItem(listId: string) {
-    const draft = itemDrafts[listId] ?? { label: "", comment: "", assigneeUserId: "" };
+    const draft = itemDrafts[listId] ?? { label: "", quantity: "1", comment: "", assigneeUserId: "" };
 
     const result = await createSharedListItemAction({
       listId,
       label: draft.label,
+      quantity: Number(draft.quantity) || 1,
       comment: draft.comment,
       assigneeUserId: draft.assigneeUserId || undefined,
     });
@@ -165,7 +171,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
 
     setItemDrafts((prev) => ({
       ...prev,
-      [listId]: { label: "", comment: "", assigneeUserId: "" },
+      [listId]: { label: "", quantity: "1", comment: "", assigneeUserId: "" },
     }));
 
     await refreshAfterAction("Item ajoute.");
@@ -176,7 +182,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
       <Card className="space-y-3 bg-gradient-to-br from-white to-indigo-50/50">
         <CardTitle className="font-serif text-lg">Listes partagees</CardTitle>
         <CardDescription>
-          Une liste simple pour les courses, la preparation des fetes et les taches familiales.
+          Des listes simples pour l&apos;epicerie, les achats et la preparation des fetes.
         </CardDescription>
 
         <form className="space-y-2" onSubmit={onCreateList}>
@@ -199,7 +205,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
             disabled={!canCreateLists || isSubmitting}
             className="h-11 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
           >
-            {Object.values(SharedListType).map((type) => (
+            {sharedListTypes.map((type) => (
               <option key={type} value={type}>
                 {listTypeLabels[type]}
               </option>
@@ -230,7 +236,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
       ) : null}
 
       {activeLists.map((list) => {
-        const currentDraft = itemDrafts[list.id] ?? { label: "", comment: "", assigneeUserId: "" };
+        const currentDraft = itemDrafts[list.id] ?? { label: "", quantity: "1", comment: "", assigneeUserId: "" };
 
         return (
           <Card key={list.id} className="space-y-3">
@@ -312,7 +318,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                   }
                   className="h-10 w-full rounded-xl border border-indigo-100 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
                 >
-                  {Object.values(SharedListType).map((type) => (
+                  {sharedListTypes.map((type) => (
                     <option key={type} value={type}>
                       {listTypeLabels[type]}
                     </option>
@@ -372,7 +378,10 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                       {item.isChecked ? <Check className="h-4 w-4" /> : null}
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-sm font-semibold ${item.isChecked ? "text-zinc-500 line-through" : "text-zinc-800"}`}>{item.label}</p>
+                      <p className={`text-sm font-semibold ${item.isChecked ? "text-zinc-500 line-through" : "text-zinc-800"}`}>
+                        {item.quantity > 1 ? `${item.quantity} x ` : ""}
+                        {item.label}
+                      </p>
                       {item.comment ? <p className="mt-1 text-xs text-zinc-600">{item.comment}</p> : null}
                       <p className="mt-1 text-xs text-zinc-500">
                         {item.assigneeName ? `Assigne a ${item.assigneeName}` : "Non assigne"}
@@ -390,6 +399,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                           setItemEditing({
                             itemId: item.id,
                             label: item.label,
+                            quantity: String(item.quantity),
                             comment: item.comment ?? "",
                             assigneeUserId: item.assigneeUserId ?? "",
                           })
@@ -423,6 +433,14 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                         placeholder="Libelle"
                       />
                       <Input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={itemEditing.quantity}
+                        onChange={(event) => setItemEditing((prev) => (prev ? { ...prev, quantity: event.target.value } : prev))}
+                        placeholder="Quantite"
+                      />
+                      <Input
                         value={itemEditing.comment}
                         onChange={(event) => setItemEditing((prev) => (prev ? { ...prev, comment: event.target.value } : prev))}
                         placeholder="Commentaire"
@@ -450,6 +468,7 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                             const result = await updateSharedListItemAction({
                               itemId: itemEditing.itemId,
                               label: itemEditing.label,
+                              quantity: Number(itemEditing.quantity) || 1,
                               comment: itemEditing.comment,
                               assigneeUserId: itemEditing.assigneeUserId,
                             });
@@ -486,6 +505,19 @@ export function SharedListsBoard({ circleId, canCreateLists, members, activeList
                     }))
                   }
                   placeholder="Ex: lait 2%"
+                />
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={currentDraft.quantity}
+                  onChange={(event) =>
+                    setItemDrafts((prev) => ({
+                      ...prev,
+                      [list.id]: { ...currentDraft, quantity: event.target.value },
+                    }))
+                  }
+                  placeholder="Quantite"
                 />
                 <Input
                   value={currentDraft.comment}

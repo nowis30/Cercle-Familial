@@ -95,6 +95,7 @@ export default async function CircleSharedListsPage({ params }: { params: Promis
       items: list.items.map((item) => ({
         id: item.id,
         label: item.label,
+        quantity: item.quantity,
         comment: item.comment,
         isChecked: item.isChecked,
         createdById: item.createdById,
@@ -111,12 +112,20 @@ export default async function CircleSharedListsPage({ params }: { params: Promis
 
   return (
     <AppShell title={`Listes: ${membership.circle.name}`}>
-      <Link
-        href={`/cercles/${circleId}`}
-        className="inline-flex rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-      >
-        Retour au cercle
-      </Link>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={`/cercles/${circleId}`}
+          className="inline-flex rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+        >
+          Retour au cercle
+        </Link>
+        <Link
+          href={`/cercles/${circleId}/taches`}
+          className="inline-flex rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+        >
+          Voir les taches
+        </Link>
+      </div>
 
       <SharedListsBoard
         circleId={circleId}

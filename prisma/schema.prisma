@@ -55,6 +55,18 @@ enum SharedListType {
   ACHATS_CADEAUX
 }
 
+enum SharedTaskStatus {
+  A_FAIRE
+  EN_COURS
+  TERMINE
+}
+
+enum SharedTaskPriority {
+  NORMALE
+  IMPORTANTE
+  URGENTE
+}
+
 enum FamilyRelationType {
   PARENT_DE
   ENFANT_DE
@@ -110,6 +122,8 @@ model User {
   createdSharedListItems SharedListItem[]       @relation("SharedListItemCreator")
   checkedSharedListItems SharedListItem[]       @relation("SharedListItemChecker")
   assignedSharedListItems SharedListItem[]      @relation("SharedListItemAssignee")
+  createdSharedTasks SharedTask[]               @relation("SharedTaskCreator")
+  assignedSharedTasks SharedTask[]              @relation("SharedTaskAssignee")
 }
 
 model Account {
@@ -166,6 +180,7 @@ model Circle {
   messages           CircleMessage[]
   giftExchanges      GiftExchange[]
   sharedLists        SharedList[]
+  sharedTasks        SharedTask[]
 
   @@index([slug])
 }
@@ -419,6 +434,7 @@ model SharedListItem {
   checkedById    String?
   assigneeUserId String?
   label          String
+  quantity       Int        @default(1)
   comment        String?
   position       Int        @default(0)
   isChecked      Boolean    @default(false)
@@ -433,6 +449,28 @@ model SharedListItem {
   @@index([listId, position])
   @@index([listId, isChecked])
   @@index([assigneeUserId])
+}
+
+model SharedTask {
+  id             String             @id @default(cuid())
+  circleId        String
+  createdById     String
+  assigneeUserId  String?
+  title           String
+  note            String?
+  dueAt           DateTime?
+  status          SharedTaskStatus   @default(A_FAIRE)
+  priority        SharedTaskPriority @default(NORMALE)
+  completedAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  circle          Circle             @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  createdBy       User               @relation("SharedTaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignee        User?              @relation("SharedTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+
+  @@index([circleId, status, priority])
+  @@index([circleId, dueAt])
+  @@index([assigneeUserId, status, dueAt])
 }
 
 model DirectConversation {

@@ -40,7 +40,7 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
   });
   const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
-  const [events, messages, activeListsCount] = await Promise.all([
+  const [events, messages, activeListsCount, activeTasksCount, urgentTasksCount] = await Promise.all([
     prisma.event.findMany({
       where: { circleId, startsAt: { gte: new Date() } },
       orderBy: { startsAt: "asc" },
@@ -54,6 +54,12 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
     }),
     prisma.sharedList.count({
       where: { circleId, isArchived: false },
+    }),
+    prisma.sharedTask.count({
+      where: { circleId, status: { not: "TERMINE" } },
+    }),
+    prisma.sharedTask.count({
+      where: { circleId, status: { not: "TERMINE" }, priority: "URGENTE" },
     }),
   ]);
 
@@ -76,6 +82,9 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ c
         </Link>
         <Link href={`/cercles/${circleId}/listes`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
           Listes partagees{activeListsCount > 0 ? ` \u00b7 ${activeListsCount}` : ""}
+        </Link>
+        <Link href={`/cercles/${circleId}/taches`} className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 font-semibold text-amber-900 transition-colors hover:bg-amber-100">
+          Taches partagees{activeTasksCount > 0 ? ` \u00b7 ${activeTasksCount}` : ""}{urgentTasksCount > 0 ? ` \u00b7 ${urgentTasksCount} urgente(s)` : ""}
         </Link>
         <Link href={`/cercles/${circleId}/membres`} className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 font-semibold text-zinc-700 transition-colors hover:bg-zinc-50">
           Membres

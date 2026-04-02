@@ -8,8 +8,10 @@ import { DashboardSection } from "@/components/dashboard/dashboard-section";
 import { EventCard } from "@/components/events/event-card";
 import { AppShell } from "@/components/layout/app-shell";
 import { CircleSwitcher } from "@/components/layout/circle-switcher";
+import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth";
 import { getHolidayEntriesForMonth, getMonthGridDates } from "@/lib/calendar";
+import { SHARED_TASK_PRIORITY_LABELS, SHARED_TASK_STATUS_LABELS } from "@/lib/constants";
 import { formatEventDateTime, formatEventTime, getUtcRangeForEventMonth, toEventDateKey } from "@/lib/event-datetime";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveTimeZone } from "@/lib/timezone";
@@ -74,7 +76,7 @@ export default async function TableauDeBordPage({
   const monthGridDates = getMonthGridDates(monthStart);
   const holidays = getHolidayEntriesForMonth(monthStart.getFullYear(), monthStart.getMonth());
 
-  const [upcomingEvents, monthEvents, birthdays, managedBirthdays, messages, urgentItems] = await Promise.all([
+  const [upcomingEvents, monthEvents, birthdays, managedBirthdays, messages, urgentItems, myTasks, urgentSharedTasks, recentLists] = await Promise.all([
     prisma.event.findMany({
       where: {
         circleId: { in: circleIds },
@@ -141,6 +143,37 @@ export default async function TableauDeBordPage({
       },
       orderBy: { updatedAt: "desc" },
       take: 6,
+    }),
+    prisma.sharedTask.findMany({
+      where: {
+        circleId: { in: circleIds },
+        status: { not: "TERMINE" },
+        OR: [{ assigneeUserId: session.user.id }, { createdById: session.user.id }],
+      },
+      orderBy: [{ priority: "desc" }, { dueAt: "asc" }, { createdAt: "desc" }],
+      take: 5,
+    }),
+    prisma.sharedTask.findMany({
+      where: {
+        circleId: { in: circleIds },
+        status: { not: "TERMINE" },
+        priority: "URGENTE",
+      },
+      orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
+      take: 5,
+    }),
+    prisma.sharedList.findMany({
+      where: {
+        circleId: { in: circleIds },
+        isArchived: false,
+      },
+      include: {
+        _count: {
+          select: { items: true },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
     }),
   ]);
 
@@ -276,7 +309,8 @@ export default async function TableauDeBordPage({
   const birthdaysSoonCount = upcomingBirthdays.filter((item) => item.diffDays <= 7).length;
 
   return (
-    <AppShell title="Tableau de bord">      {(todaysEvents.length > 0 || todaysBirthdays.length > 0) ? (
+    <AppShell title="Tableau de bord">
+      {(todaysEvents.length > 0 || todaysBirthdays.length > 0) ? (
         <DashboardSection title="Aujourd\u2019hui">
           {todaysEvents.map((event) => (
             <Link
@@ -302,6 +336,69 @@ export default async function TableauDeBordPage({
           ))}
         </DashboardSection>
       ) : null}
+      <DashboardSection title="Mes taches et listes" description="Ce que tu peux regler rapidement aujourd'hui.">
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-zinc-900">Mes taches</p>
+              <Link href={`/cercles/${activeCircle.id}/taches`} className="text-xs font-semibold text-amber-800 hover:underline">
+                Ouvrir →
+              </Link>
+            </div>
+            <div className="mt-2 space-y-2">
+              {myTasks.length === 0 ? <p className="text-sm text-zinc-600">Aucune tache en attente.</p> : null}
+              {myTasks.map((task) => (
+                <Link key={task.id} href={`/cercles/${task.circleId}/taches`} className="block rounded-xl bg-white px-3 py-2 transition-colors hover:bg-amber-100/70">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-zinc-900">{task.title}</span>
+                    <Badge variant={task.priority === "URGENTE" ? "danger" : task.priority === "IMPORTANTE" ? "warning" : "secondary"}>
+                      {SHARED_TASK_PRIORITY_LABELS[task.priority]}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-600">
+                    <span>{SHARED_TASK_STATUS_LABELS[task.status]}</span>
+                    {task.dueAt ? <span>Avant le {new Date(task.dueAt).toLocaleDateString("fr-CA", { month: "short", day: "numeric" })}</span> : null}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-zinc-900">Taches urgentes</p>
+              <Badge variant="danger">{urgentSharedTasks.length}</Badge>
+            </div>
+            <div className="mt-2 space-y-2">
+              {urgentSharedTasks.length === 0 ? <p className="text-sm text-zinc-600">Aucune urgence cote taches.</p> : null}
+              {urgentSharedTasks.map((task) => (
+                <Link key={task.id} href={`/cercles/${task.circleId}/taches`} className="block rounded-xl bg-white px-3 py-2 transition-colors hover:bg-rose-100/70">
+                  <span className="block text-sm font-semibold text-zinc-900">{task.title}</span>
+                  <span className="text-xs text-zinc-600">{task.dueAt ? `Avant le ${new Date(task.dueAt).toLocaleDateString("fr-CA", { month: "short", day: "numeric" })}` : "Sans echeance"}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-zinc-900">Listes recentes</p>
+              <Link href={`/cercles/${activeCircle.id}/listes`} className="text-xs font-semibold text-indigo-700 hover:underline">
+                Ouvrir →
+              </Link>
+            </div>
+            <div className="mt-2 space-y-2">
+              {recentLists.length === 0 ? <p className="text-sm text-zinc-600">Aucune liste recente.</p> : null}
+              {recentLists.map((list) => (
+                <Link key={list.id} href={`/cercles/${list.circleId}/listes`} className="block rounded-xl bg-white px-3 py-2 transition-colors hover:bg-indigo-100/70">
+                  <span className="block text-sm font-semibold text-zinc-900">{list.title}</span>
+                  <span className="text-xs text-zinc-600">{list._count.items} item(s)</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </DashboardSection>
       <DashboardSection title={`Calendrier mensuel - ${monthLabel}`} description="Vue rapide des evenements et anniversaires de ce mois.">
         <div className="mb-3">
           <CircleSwitcher
