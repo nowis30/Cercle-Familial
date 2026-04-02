@@ -134,6 +134,7 @@ model User {
   createdSharedTasks SharedTask[]               @relation("SharedTaskCreator")
   assignedSharedTasks SharedTask[]              @relation("SharedTaskAssignee")
   appNotifications  AppNotification[]
+  createdSharedNotes SharedNote[]               @relation("SharedNoteCreator")
 }
 
 model Account {
@@ -191,6 +192,7 @@ model Circle {
   giftExchanges      GiftExchange[]
   sharedLists        SharedList[]
   sharedTasks        SharedTask[]
+  sharedNotes        SharedNote[]
 
   @@index([slug])
 }
@@ -286,6 +288,7 @@ model Event {
   contributionItems EventContributionItem[]
   comments         EventComment[]
   photos           EventPhoto[]
+  sharedNotes      SharedNote[]
 
   @@index([circleId, startsAt])
 }
@@ -481,6 +484,24 @@ model SharedTask {
   @@index([circleId, status, priority])
   @@index([circleId, dueAt])
   @@index([assigneeUserId, status, dueAt])
+}
+
+model SharedNote {
+  id          String    @id @default(cuid())
+  circleId    String
+  eventId     String?
+  createdById String
+  title       String
+  content     String
+  isPinned    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  circle      Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  event       Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("SharedNoteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([circleId, eventId, isPinned, createdAt])
+  @@index([createdById, createdAt])
 }
 
 model DirectConversation {

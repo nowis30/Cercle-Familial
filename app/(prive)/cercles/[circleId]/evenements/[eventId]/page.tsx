@@ -7,6 +7,7 @@ import { EventManagementActions } from "@/components/events/event-management-act
 import { EventParticipantsPanel } from "@/components/events/event-participants-panel";
 import { EventPhotosPanel } from "@/components/events/event-photos-panel";
 import { AppShell } from "@/components/layout/app-shell";
+import { SharedNotesBoard } from "@/components/notes/shared-notes-board";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
@@ -80,10 +81,28 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
   const effectiveTimeZone = getEffectiveTimeZone(user?.timezone);
 
   const myRsvp = event.attendances.find((attendance) => attendance.userId === session.user.id);
-  const managedFamilyMembers = await prisma.managedFamilyMember.findMany({
-    where: { ownerUserId: session.user.id },
-    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-  });
+  const [managedFamilyMembers, eventNotes] = await Promise.all([
+    prisma.managedFamilyMember.findMany({
+      where: { ownerUserId: session.user.id },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    }),
+    prisma.sharedNote.findMany({
+      where: {
+        circleId,
+        eventId,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+      take: 100,
+    }),
+  ]);
   const totalResponses = event.attendances.length;
   const totalPeople = event.attendances.reduce((sum, attendance) => sum + attendance.totalCount, 0);
   const totalAdults = event.attendances.reduce((sum, attendance) => sum + attendance.adultsCount, 0);
@@ -213,6 +232,26 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
           }))}
         />
       </Card>
+      <SharedNotesBoard
+        circleId={circleId}
+        eventId={eventId}
+        canCreateNotes={canCreateEvent(membership.role)}
+        notes={eventNotes.map((note) => ({
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          isPinned: note.isPinned,
+          createdByName: note.createdBy.name,
+          createdAtLabel: new Intl.DateTimeFormat("fr-CA", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(note.createdAt),
+          canManage: canManageCircle(membership.role) || note.createdById === session.user.id,
+        }))}
+        contextLabel={`l'evenement ${event.title}`}
+      />
       <Card>
         <p className="mb-2 font-serif text-lg font-bold text-zinc-900">Photos souvenirs</p>
         <EventPhotosPanel
