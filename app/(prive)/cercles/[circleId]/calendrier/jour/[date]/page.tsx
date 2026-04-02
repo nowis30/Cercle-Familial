@@ -56,7 +56,7 @@ export default async function JourCalendrierPage({
 
   const dayUtcRange = getUtcRangeForEventDay(date, effectiveTimeZone);
 
-  const [events, birthdays, importantDates] = await Promise.all([
+  const [events, birthdays, managedBirthdays, importantDates] = await Promise.all([
     prisma.event.findMany({
       where: {
         circleId,
@@ -70,6 +70,17 @@ export default async function JourCalendrierPage({
     prisma.personProfile.findMany({
       where: {
         user: {
+          circleMemberships: {
+            some: { circleId },
+          },
+        },
+        birthDate: { not: null },
+      },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    }),
+    prisma.managedFamilyMember.findMany({
+      where: {
+        owner: {
           circleMemberships: {
             some: { circleId },
           },
@@ -92,6 +103,9 @@ export default async function JourCalendrierPage({
   ]);
 
   const dayBirthdays = birthdays.filter((profile) => profile.birthDate && isSameMonthDay(new Date(profile.birthDate), selectedDate));
+  const dayManagedBirthdays = managedBirthdays.filter(
+    (member) => member.birthDate && isSameMonthDay(new Date(member.birthDate), selectedDate),
+  );
 
   const dayImportantDates = importantDates.flatMap((profile) => {
     const entries = [
@@ -112,7 +126,12 @@ export default async function JourCalendrierPage({
     isSameMonthDay(holiday.date, selectedDate),
   );
 
-  const hasAnyItem = events.length > 0 || dayBirthdays.length > 0 || dayImportantDates.length > 0 || dayHolidays.length > 0;
+  const hasAnyItem =
+    events.length > 0 ||
+    dayBirthdays.length > 0 ||
+    dayManagedBirthdays.length > 0 ||
+    dayImportantDates.length > 0 ||
+    dayHolidays.length > 0;
 
   return (
     <AppShell title="Journee">
@@ -173,6 +192,16 @@ export default async function JourCalendrierPage({
                 <p className="text-sm font-semibold text-zinc-900">Anniversaire</p>
                 <p className="text-xs text-zinc-700">
                   {profile.firstName} {profile.lastName}
+                </p>
+              </div>
+            ))}
+
+            {dayManagedBirthdays.map((member) => (
+              <div key={`birthday-managed-${member.id}`} className="rounded-2xl border border-pink-100 bg-pink-50/60 px-3 py-3">
+                <p className="text-sm font-semibold text-zinc-900">Anniversaire</p>
+                <p className="text-xs text-zinc-700">
+                  {member.firstName}
+                  {member.lastName ? ` ${member.lastName}` : ""}
                 </p>
               </div>
             ))}

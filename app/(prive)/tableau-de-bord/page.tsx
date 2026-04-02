@@ -74,7 +74,7 @@ export default async function TableauDeBordPage({
   const monthGridDates = getMonthGridDates(monthStart);
   const holidays = getHolidayEntriesForMonth(monthStart.getFullYear(), monthStart.getMonth());
 
-  const [upcomingEvents, monthEvents, birthdays, messages, urgentItems] = await Promise.all([
+  const [upcomingEvents, monthEvents, birthdays, managedBirthdays, messages, urgentItems] = await Promise.all([
     prisma.event.findMany({
       where: {
         circleId: { in: circleIds },
@@ -106,6 +106,18 @@ export default async function TableauDeBordPage({
       include: { user: true },
       take: 40,
     }),
+    prisma.managedFamilyMember.findMany({
+      where: {
+        owner: {
+          circleMemberships: {
+            some: { circleId: { in: circleIds } },
+          },
+        },
+        birthDate: { not: null },
+      },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      take: 40,
+    }),
     prisma.circleMessage.findMany({
       where: { circleId: { in: circleIds } },
       include: { author: true },
@@ -131,6 +143,21 @@ export default async function TableauDeBordPage({
     itemsByDay.set(dateKey, list);
   };
 
+  const allBirthdays = [
+    ...birthdays.map((profile) => ({
+      id: profile.id,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      birthDate: profile.birthDate,
+    })),
+    ...managedBirthdays.map((member) => ({
+      id: member.id,
+      firstName: member.firstName,
+      lastName: member.lastName ?? "",
+      birthDate: member.birthDate,
+    })),
+  ];
+
   for (const event of monthEvents) {
     const eventDate = new Date(event.startsAt);
     const dateKey = toEventDateKey(eventDate, effectiveTimeZone);
@@ -142,7 +169,7 @@ export default async function TableauDeBordPage({
     });
   }
 
-  for (const profile of birthdays) {
+  for (const profile of allBirthdays) {
     if (!profile.birthDate) continue;
     const birthDate = new Date(profile.birthDate);
     if (birthDate.getMonth() !== monthStart.getMonth()) continue;
@@ -165,7 +192,7 @@ export default async function TableauDeBordPage({
   }
 
   const now = new Date();
-  const upcomingBirthdays = birthdays
+  const upcomingBirthdays = allBirthdays
     .map((profile) => {
       if (!profile.birthDate) return null;
       const birthDate = new Date(profile.birthDate);

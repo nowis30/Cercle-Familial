@@ -71,7 +71,7 @@ export default async function CalendrierPage({
   const monthKey = format(monthStart, "yyyy-MM");
   const monthUtcRange = getUtcRangeForEventMonth(monthKey, effectiveTimeZone);
 
-  const [events, birthdays, importantDates] = await Promise.all([
+  const [events, birthdays, managedBirthdays, importantDates] = await Promise.all([
     prisma.event.findMany({
       where: {
         circleId,
@@ -90,6 +90,17 @@ export default async function CalendrierPage({
         birthDate: { not: null },
       },
       include: { user: true },
+    }),
+    prisma.managedFamilyMember.findMany({
+      where: {
+        owner: {
+          circleMemberships: {
+            some: { circleId },
+          },
+        },
+        birthDate: { not: null },
+      },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     prisma.personProfile.findMany({
       where: {
@@ -140,6 +151,18 @@ export default async function CalendrierPage({
       id: `birthday-${profile.id}`,
       kind: "birthday",
       label: `Anniversaire: ${profile.firstName}`,
+    });
+  }
+
+  for (const member of managedBirthdays) {
+    if (!member.birthDate) continue;
+    const birthDate = new Date(member.birthDate);
+    if (birthDate.getMonth() !== monthStart.getMonth()) continue;
+    const dateKey = format(new Date(monthStart.getFullYear(), monthStart.getMonth(), birthDate.getDate()), "yyyy-MM-dd");
+    pushDayItem(dateKey, {
+      id: `birthday-managed-${member.id}`,
+      kind: "birthday",
+      label: `Anniversaire: ${member.firstName}`,
     });
   }
 
