@@ -17,8 +17,12 @@ function isMissingTasksOverdueColumnError(error: unknown) {
     typeof error === "object" && error !== null && "meta" in error
       ? String((error as { meta?: { column?: string } }).meta?.column ?? "")
       : "";
+  const modelName =
+    typeof error === "object" && error !== null && "meta" in error
+      ? String((error as { meta?: { modelName?: string } }).meta?.modelName ?? "")
+      : "";
 
-  return code === "P2022" && column.includes("tasksOverdueChannel");
+  return code === "P2022" && (column.includes("tasksOverdueChannel") || modelName === "UserNotificationPreference");
 }
 
 export function withNotificationPreferenceDefaults(prefs: Partial<NotificationPreferenceValues> | null): NotificationPreferenceValues {
