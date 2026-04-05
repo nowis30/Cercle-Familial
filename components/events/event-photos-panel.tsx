@@ -9,6 +9,43 @@ import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructiv
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/** Réduit et compresse une image côté client pour les uploads mobiles. */
+async function compressImage(file: File, maxDimension = 1920, quality = 0.85): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width >= height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return; }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        quality,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Lecture image echouee")); };
+    img.src = url;
+  });
+}
+
 type PhotoView = {
   id: string;
   url: string;
@@ -24,11 +61,12 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
   const [feedback, setFeedback] = useState("");
   const [isErrorFeedback, setIsErrorFeedback] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "compressing" | "uploading">("idle");
 
   const mapUploadApiError = (code?: string, fallback?: string) => {
     switch (code) {
       case "FILE_TOO_LARGE":
-        return "Fichier trop volumineux (max 8 Mo).";
+        return "Fichier trop volumineux (max 20 Mo).";
       case "INVALID_MIME_TYPE":
         return "Type de fichier non autorise. Utilisez jpg, png, webp ou gif.";
       case "INVALID_FILE":
@@ -63,7 +101,7 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
         <Input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept="image/*"
           onChange={(event) => {
             setFeedback("");
             setIsErrorFeedback(false);
@@ -86,8 +124,17 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
             setFeedback("");
             setIsErrorFeedback(false);
 
+            let fileToUpload = file;
+            try {
+              setUploadStatus("compressing");
+              fileToUpload = await compressImage(file);
+            } catch {
+              // compression échouée, on envoie le fichier original
+            }
+
+            setUploadStatus("uploading");
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", fileToUpload);
             const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
             const uploadBody = (await uploadRes.json().catch(() => ({}))) as { error?: string; code?: string; url?: string };
 
@@ -95,6 +142,7 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
               setIsErrorFeedback(true);
               setFeedback(mapUploadApiError(uploadBody.code, uploadBody.error));
               setIsUploading(false);
+              setUploadStatus("idle");
               return;
             }
 
@@ -103,6 +151,7 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
               setIsErrorFeedback(true);
               setFeedback(mapDatabaseError((result as { code?: string }).code, result.message));
               setIsUploading(false);
+              setUploadStatus("idle");
               return;
             }
 
@@ -114,10 +163,11 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
             setIsErrorFeedback(false);
             setFeedback("Photo ajoutee.");
             setIsUploading(false);
+            setUploadStatus("idle");
             router.refresh();
           }}
         >
-          {isUploading ? "Televersement..." : "Ajouter une photo"}
+          {uploadStatus === "compressing" ? "Compression en cours..." : uploadStatus === "uploading" ? "Televersement..." : "Ajouter une photo"}
         </Button>
         {feedback ? <p className={`text-xs font-medium ${isErrorFeedback ? "text-rose-700" : "text-emerald-700"}`}>{feedback}</p> : null}
       </div>

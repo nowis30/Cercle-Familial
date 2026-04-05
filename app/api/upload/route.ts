@@ -7,7 +7,7 @@ import { put } from "@vercel/blob";
 
 import { auth } from "@/lib/auth";
 
-const MAX_SIZE_MB = 8;
+const MAX_SIZE_MB = 20;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const EXTENSIONS_BY_MIME: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      return NextResponse.json({ error: `Fichier trop volumineux (max ${MAX_SIZE_MB} Mo)`, code: "FILE_TOO_LARGE" }, { status: 400 });
+      return NextResponse.json({ error: `Fichier trop volumineux (max ${MAX_SIZE_MB} Mo)`, code: "FILE_TOO_LARGE" }, { status: 413 });
     }
 
     const extension = EXTENSIONS_BY_MIME[file.type];
