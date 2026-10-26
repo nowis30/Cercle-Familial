@@ -328,7 +328,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ci
           eventId={event.id}
           photos={event.photos.map((photo) => ({
             id: photo.id,
-            url: photo.url,
+            url: `/api/photos/${encodeURIComponent(photo.id)}`,
             caption: photo.caption,
             canDelete: canManageCircle(membership.role) || photo.uploadedBy === session.user.id,
           }))}

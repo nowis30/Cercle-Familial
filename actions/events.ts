@@ -1,13 +1,11 @@
 "use server";
 
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
-
 import { ContributionStatus, EventType, HistoryActionType, HistoryObjectType, RsvpResponse } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { deleteEventPhotoFile } from "@/lib/event-photo-storage";
 import { safeCreateHistory } from "@/lib/action-history";
 import { canCreateEvent, canManageCircle } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -957,70 +955,6 @@ export async function deleteEventCommentAction(input: z.infer<typeof deleteEvent
   return { success: true };
 }
 
-const eventPhotoSchema = z.object({
-  eventId: z.string().min(1),
-  url: z
-    .string()
-    .min(1)
-    .refine((value) => value.startsWith("/uploads/events/") || value.startsWith("https://"), "URL photo invalide"),
-  caption: z.string().optional(),
-});
-
-export async function addEventPhotoAction(input: z.infer<typeof eventPhotoSchema>) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, message: "Session invalide.", code: "INVALID_SESSION" };
-  }
-
-  const parsed = eventPhotoSchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false, message: "Photo invalide.", code: "INVALID_PHOTO_INPUT" };
-  }
-
-  const event = await prisma.event.findUnique({ where: { id: parsed.data.eventId } });
-  if (!event) {
-    return { success: false, message: "Evenement introuvable.", code: "EVENT_NOT_FOUND" };
-  }
-
-  const membership = await prisma.circleMembership.findUnique({
-    where: {
-      circleId_userId: {
-        circleId: event.circleId,
-        userId: session.user.id,
-      },
-    },
-  });
-
-  if (!membership) {
-    return { success: false, message: "Acces refuse.", code: "PERMISSION_DENIED" };
-  }
-
-  try {
-    await prisma.eventPhoto.create({
-      data: {
-        eventId: event.id,
-        uploadedBy: session.user.id,
-        url: parsed.data.url,
-        caption: parsed.data.caption,
-      },
-    });
-  } catch (error) {
-    console.error("[addEventPhotoAction] Echec enregistrement photo", {
-      eventId: event.id,
-      userId: session.user.id,
-      message: error instanceof Error ? error.message : "Erreur inconnue",
-    });
-    return {
-      success: false,
-      message: "Televersement reussi mais echec d'enregistrement en base de donnees.",
-      code: "DATABASE_SAVE_FAILED",
-    };
-  }
-
-  revalidatePath(`/cercles/${event.circleId}/evenements/${event.id}`);
-  return { success: true, code: "OK" };
-}
-
 const deleteEventPhotoSchema = z.object({
   photoId: z.string().min(1),
 });
@@ -1057,14 +991,13 @@ export async function deleteEventPhotoAction(input: z.infer<typeof deleteEventPh
     return { success: false, message: "Suppression non autorisee." };
   }
 
-  await prisma.eventPhoto.delete({ where: { id: photo.id } });
-
-  // Nettoyage best-effort du fichier local pour eviter les orphelins.
-  if (photo.url.startsWith("/uploads/events/")) {
-    const relativePath = photo.url.replace(/^\/+/, "");
-    const absolutePath = join(process.cwd(), "public", relativePath.replace(/^public\//, ""));
-    await unlink(absolutePath).catch(() => undefined);
+  // Keep the row when storage fails so deletion can be retried instead of orphaning a file.
+  try {
+    await deleteEventPhotoFile(photo.url);
+  } catch {
+    return { success: false, message: "Suppression du fichier impossible. Reessayez." };
   }
+  await prisma.eventPhoto.delete({ where: { id: photo.id } });
 
   revalidatePath(`/cercles/${photo.event.circleId}/evenements/${photo.event.id}`);
   return { success: true };
