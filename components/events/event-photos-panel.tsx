@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { addEventPhotoAction, deleteEventPhotoAction } from "@/actions/events";
+import { deleteEventPhotoAction } from "@/actions/events";
 import { PhotoGallery } from "@/components/events/photo-gallery";
 import { ConfirmDestructiveDialog } from "@/components/shared/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
@@ -82,19 +82,6 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
     }
   };
 
-  const mapDatabaseError = (code?: string, fallback?: string) => {
-    switch (code) {
-      case "PERMISSION_DENIED":
-        return "Permission refusee pour cet evenement.";
-      case "DATABASE_SAVE_FAILED":
-        return "Photo envoyee, mais echec d'enregistrement en base de donnees.";
-      case "EVENT_NOT_FOUND":
-        return "Evenement introuvable.";
-      default:
-        return fallback ?? "Impossible d'associer la photo a l'evenement.";
-    }
-  };
-
   return (
     <div className="space-y-3">
       <div className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3">
@@ -135,21 +122,15 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
             setUploadStatus("uploading");
             const formData = new FormData();
             formData.append("file", fileToUpload);
+            formData.append("eventId", eventId);
+            formData.append("caption", caption);
+            try {
             const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
             const uploadBody = (await uploadRes.json().catch(() => ({}))) as { error?: string; code?: string; url?: string };
 
             if (!uploadRes.ok) {
               setIsErrorFeedback(true);
               setFeedback(mapUploadApiError(uploadBody.code, uploadBody.error));
-              setIsUploading(false);
-              setUploadStatus("idle");
-              return;
-            }
-
-            const result = await addEventPhotoAction({ eventId, url: uploadBody.url ?? "", caption });
-            if (!result.success) {
-              setIsErrorFeedback(true);
-              setFeedback(mapDatabaseError((result as { code?: string }).code, result.message));
               setIsUploading(false);
               setUploadStatus("idle");
               return;
@@ -165,6 +146,13 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
             setIsUploading(false);
             setUploadStatus("idle");
             router.refresh();
+            } catch {
+              setIsErrorFeedback(true);
+              setFeedback("Connexion interrompue. Reessayez le televersement.");
+            } finally {
+              setIsUploading(false);
+              setUploadStatus("idle");
+            }
           }}
         >
           {uploadStatus === "compressing" ? "Compression en cours..." : uploadStatus === "uploading" ? "Televersement..." : "Ajouter une photo"}
@@ -185,7 +173,12 @@ export function EventPhotosPanel({ eventId, photos }: { eventId: string; photos:
               triggerVariant="ghost"
               warningMessage="Cette photo sera supprimée définitivement de l'événement."
               onConfirm={async () => {
-                await deleteEventPhotoAction({ photoId: photo.id });
+                const result = await deleteEventPhotoAction({ photoId: photo.id });
+                if (!result.success) {
+                  setIsErrorFeedback(true);
+                  setFeedback(result.message ?? "Suppression impossible.");
+                  return;
+                }
                 router.refresh();
               }}
             />

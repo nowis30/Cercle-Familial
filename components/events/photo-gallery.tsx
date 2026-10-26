@@ -27,7 +27,7 @@ export function PhotoGallery({ photos }: { photos: Photo[] }) {
           <button key={photo.id} type="button" onClick={() => setSelectedPhoto(photo)} className="text-left">
             <Card className="group overflow-hidden p-0 transition-shadow hover:shadow-[0_16px_28px_-20px_rgba(30,64,175,0.45)]">
               <div className="relative h-36 w-full overflow-hidden">
-                <Image src={photo.url} alt={photo.caption ?? "Photo evenement"} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                <Image unoptimized src={photo.url} alt={photo.caption ?? "Photo evenement"} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
               </div>
               {photo.caption ? <p className="line-clamp-2 p-2 text-xs font-medium text-zinc-600">{photo.caption}</p> : null}
             </Card>
@@ -48,7 +48,7 @@ export function PhotoGallery({ photos }: { photos: Photo[] }) {
             </button>
             <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-black shadow-2xl">
               <div className="relative h-[65vh] min-h-[320px] w-full">
-                <Image src={selectedPhoto.url} alt={selectedPhoto.caption ?? "Photo evenement"} fill className="object-contain" />
+                <Image unoptimized src={selectedPhoto.url} alt={selectedPhoto.caption ?? "Photo evenement"} fill className="object-contain" />
               </div>
               {selectedPhoto.caption ? <p className="border-t border-white/20 bg-black/70 px-4 py-3 text-sm text-zinc-100">{selectedPhoto.caption}</p> : null}
             </div>

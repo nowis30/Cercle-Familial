@@ -1,20 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import crypto from "node:crypto";
-
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { revalidatePath } from "next/cache";
 
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { MAX_PHOTO_BYTES, matchesPhotoMime, readPhotoFormData } from "@/lib/event-photo-reference";
+import { deleteEventPhotoFile, saveEventPhoto } from "@/lib/event-photo-storage";
 
-const MAX_SIZE_MB = 20;
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const EXTENSIONS_BY_MIME: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "image/gif": ".gif",
-};
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
@@ -22,72 +14,50 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Session invalide", code: "INVALID_SESSION" }, { status: 401 });
     }
-
-    const formData = await request.formData();
-    const file = formData.get("file");
-
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Fichier invalide", code: "INVALID_FILE" }, { status: 400 });
+    if (request.headers.get("origin") !== new URL(request.url).origin) {
+      return NextResponse.json({ error: "Origine refusee", code: "INVALID_ORIGIN" }, { status: 403 });
     }
 
-    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+    const formData = await readPhotoFormData(request);
+    const file = formData.get("file");
+    const eventId = formData.get("eventId");
+    const caption = formData.get("caption");
+    if (!(file instanceof File) || typeof eventId !== "string" || !eventId || eventId.length > 128 ||
+      (caption !== null && (typeof caption !== "string" || caption.length > 1000))) {
+      return NextResponse.json({ error: "Photo ou evenement invalide", code: "INVALID_FILE" }, { status: 400 });
+    }
+    if (!file.size || file.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json({ error: "Fichier trop volumineux ou vide (max 20 Mo)", code: "FILE_TOO_LARGE" }, { status: 413 });
+    }
+    const event = await prisma.event.findFirst({
+      where: { id: eventId, circle: { memberships: { some: { userId: session.user.id } } } },
+      select: { id: true, circleId: true },
+    });
+    if (!event) return NextResponse.json({ error: "Evenement inaccessible", code: "PERMISSION_DENIED" }, { status: 403 });
+
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (!matchesPhotoMime(bytes, file.type)) {
       return NextResponse.json({ error: "Type de fichier non autorise (jpg, png, webp, gif)", code: "INVALID_MIME_TYPE" }, { status: 400 });
     }
-
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      return NextResponse.json({ error: `Fichier trop volumineux (max ${MAX_SIZE_MB} Mo)`, code: "FILE_TOO_LARGE" }, { status: 413 });
-    }
-
-    const extension = EXTENSIONS_BY_MIME[file.type];
-    if (!extension) {
-      return NextResponse.json({ error: "Extension non supportee", code: "UNSUPPORTED_EXTENSION" }, { status: 400 });
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${extension}`;
-
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(`events/${fileName}`, buffer, {
-        access: "public",
-        contentType: file.type,
-        addRandomSuffix: false,
+    const reference = await saveEventPhoto(bytes, file.type);
+    let photo: { id: string };
+    try {
+      // Registration and ownership are server-side: the client never submits a storage URL.
+      photo = await prisma.eventPhoto.create({
+        data: { eventId: event.id, uploadedBy: session.user.id, url: reference, caption: typeof caption === "string" ? caption.trim() || null : null },
+        select: { id: true },
       });
-
-      return NextResponse.json({ url: blob.url, size: file.size, mimeType: file.type, storage: "blob" });
+    } catch (error) {
+      await deleteEventPhotoFile(reference).catch(() => console.error("[upload] Nettoyage du fichier orphelin requis"));
+      throw error;
     }
-
-    const uploadDir = join(process.cwd(), "public", "uploads", "events");
-
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(join(uploadDir, fileName), buffer);
-
-    return NextResponse.json({ url: `/uploads/events/${fileName}`, size: file.size, mimeType: file.type, storage: "local" });
+    revalidatePath(`/cercles/${event.circleId}/evenements/${event.id}`);
+    return NextResponse.json({ id: photo.id, url: `/api/photos/${encodeURIComponent(photo.id)}` }, { status: 201 });
   } catch (error) {
-    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: string }).code) : "";
-
-    if (code === "EROFS" || code === "EPERM") {
-      console.error("[upload] Ecriture impossible sur le stockage local", { code });
-      return NextResponse.json(
-        {
-          error:
-            "Televersement indisponible sur cet environnement de production (stockage local en lecture seule). Configurez un stockage externe pour les photos.",
-          code: "STORAGE_READ_ONLY",
-        },
-        { status: 503 },
-      );
-    }
-
-    if (code === "ENOSPC") {
-      console.error("[upload] Plus d'espace disque", { code });
-      return NextResponse.json({ error: "Televersement impossible: espace disque insuffisant.", code: "NO_SPACE_LEFT" }, { status: 507 });
-    }
-
-    console.error("[upload] Erreur POST /api/upload", {
-      code,
-      message: error instanceof Error ? error.message : "Erreur inconnue",
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    return NextResponse.json({ error: "Erreur de televersement", code: "UPLOAD_WRITE_FAILED" }, { status: 500 });
+    if (error instanceof RangeError) return NextResponse.json({ error: "Fichier trop volumineux", code: "FILE_TOO_LARGE" }, { status: 413 });
+    if (error instanceof TypeError) return NextResponse.json({ error: "Formulaire invalide", code: "INVALID_FILE" }, { status: 400 });
+    // Do not log provider errors: they may contain private storage URLs or credentials.
+    console.error("[upload] Echec du stockage ou de l'enregistrement de la photo");
+    return NextResponse.json({ error: "Televersement indisponible. Reessayez plus tard.", code: "UPLOAD_WRITE_FAILED" }, { status: 503 });
   }
 }
